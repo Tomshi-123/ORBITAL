@@ -3,7 +3,7 @@ import { PanResponder, View } from 'react-native';
 import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg';
 import { colors } from '../theme';
 
-export type GlobeMarker = { id: string; latitude: number; longitude: number };
+export type GlobeMarker = { id: string; latitude: number; longitude: number; color?: string };
 
 type Props = {
   markers: GlobeMarker[];
@@ -126,9 +126,9 @@ export function Globe3D({ markers, selectedId, onSelect, onInteractionChange, si
               cx={c + p.x * r}
               cy={c - p.y * r}
               r={selected ? 7 : 5}
-              fill={selected ? colors.amber : colors.blue}
-              stroke="#D5F4FF"
-              strokeWidth={1}
+              fill={m.color ?? colors.blue}
+              stroke={selected ? '#FFFFFF' : '#D5F4FF'}
+              strokeWidth={selected ? 2 : 1}
               onPress={() => onSelect?.(m.id)}
             />
           );

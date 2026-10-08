@@ -2,28 +2,30 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Badge, InfoRow, Page, PageHeader, Panel } from '../../components/ui';
-import { sightings } from '../../mock-data';
+import { useEffect, useState } from 'react';
+import { dataSource } from '../../services';
+import type { Sighting } from '../../types';
 import { colors } from '../../theme';
 
 export default function SightingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const report = sightings.find((item) => item.id === id);
-  if (!report) return <Page><PageHeader title="Report unavailable" subtitle="This sample report could not be found." action={{ icon: 'close', onPress: () => router.back() }} /></Page>;
+  const [report, setReport] = useState<Sighting | null | undefined>(undefined);
+  useEffect(() => { dataSource.getSightings().then((list) => setReport(list.find((item) => item.id === id) ?? null)); }, [id]);
+  if (report === undefined) return <Page><PageHeader title="Loading" action={{ icon: 'close', onPress: () => router.back() }} /></Page>;
+  if (!report) return <Page><PageHeader title="Report unavailable" subtitle="This report could not be found." action={{ icon: 'close', onPress: () => router.back() }} /></Page>;
   const tone = report.confidence === 'High' ? 'green' : report.confidence === 'Medium' ? 'amber' : 'muted';
   return <Page>
     <PageHeader eyebrow="REPORTED OBSERVATION" title="Report details" action={{ icon: 'close', onPress: () => router.back() }} />
-    <Panel style={styles.hero}><View style={styles.heroTop}><Badge tone={tone}>{report.confidence.toUpperCase()} CONFIDENCE</Badge><Text style={styles.sample}>SAMPLE REPORT</Text></View><Text style={styles.location}>{report.location}</Text><Text style={styles.country}>{report.country}</Text><View style={styles.locationMap}><View style={styles.target}><View style={styles.targetCore} /></View><Text style={styles.mapCaption}>{report.latitude.toFixed(2)}°, {report.longitude.toFixed(2)}°</Text></View></Panel>
+    <Panel style={styles.hero}><View style={styles.heroTop}><Badge tone={tone}>{report.confidence.toUpperCase()} CONFIDENCE</Badge><Text style={styles.sample}>UAP ATLAS</Text></View><Text style={styles.location}>{report.location}</Text><Text style={styles.country}>{report.country}</Text><View style={styles.locationMap}><View style={styles.target}><View style={styles.targetCore} /></View><Text style={styles.mapCaption}>{report.latitude.toFixed(2)}°, {report.longitude.toFixed(2)}°</Text></View></Panel>
     <Panel style={styles.details}>
       <InfoRow label="Reported object" value={report.objectType} />
       <InfoRow label="Reported at" value={new Date(report.timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} />
       <InfoRow label="Duration" value={report.duration} />
-      <InfoRow label="Witnesses" value={String(report.witnesses)} />
-      <InfoRow label="Direction" value={report.direction} />
       <InfoRow label="Source" value={report.source} />
       <InfoRow label="Source reliability" value="Not independently assessed" />
     </Panel>
-    <Panel style={styles.description}><Text style={styles.label}>REPORT DESCRIPTION</Text><Text style={styles.body}>{report.description}</Text><Text style={styles.reportedBy}>Reported by: Sample contributor  ·  Last updated: {new Date(report.timestamp).toLocaleDateString()}</Text></Panel>
-    <View style={styles.notice}><Ionicons name="information-circle-outline" size={18} color={colors.amber} /><Text style={styles.noticeText}>This is an illustrative report. A submitted sighting is not confirmation of an unknown craft or phenomenon.</Text></View>
+    <Panel style={styles.description}><Text style={styles.label}>REPORT DESCRIPTION</Text><Text style={styles.body}>{report.description}</Text><Text style={styles.reportedBy}>Original report: {report.source}</Text></Panel>
+    <View style={styles.notice}><Ionicons name="information-circle-outline" size={18} color={colors.amber} /><Text style={styles.noticeText}>A submitted sighting is not confirmation of an unknown craft or phenomenon.</Text></View>
   </Page>;
 }
 

@@ -1,41 +1,44 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Globe3D } from '../../components/Globe3D';
 import { FilterChips, Page, PageHeader, Panel, SightingRow } from '../../components/ui';
 import { dataSource } from '../../services';
+import { markerColor } from '../../services/uapAtlas';
 import { colors } from '../../theme';
 import type { Sighting } from '../../types';
 
 export default function MapScreen() {
   const [reports, setReports] = useState<Sighting[]>([]);
-  const [windowFilter, setWindowFilter] = useState('24 hours');
+  const [windowFilter, setWindowFilter] = useState('All');
   const [selected, setSelected] = useState<Sighting | null>(null);
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const [shown, setShown] = useState(10);
   useEffect(() => { dataSource.getSightings().then(setReports); }, []);
-  const cutoff = Date.now() - (windowFilter === '1 hour' ? 3_600_000 : windowFilter === '7 days' ? 7 * 86_400_000 : 86_400_000);
+  const days = windowFilter === '30 days' ? 30 : windowFilter === '1 year' ? 365 : Infinity;
+  const cutoff = Date.now() - days * 86_400_000;
   const visible = reports.filter((report) => new Date(report.timestamp).getTime() >= cutoff);
+  const markers = useMemo(() => visible.slice(0, 600).map((report) => ({ id: report.id, latitude: report.latitude, longitude: report.longitude, color: markerColor(report.timestamp) })), [visible]);
   return <Page scrollEnabled={scrollEnabled}>
-    <PageHeader eyebrow="OBSERVATION NETWORK" title="Live map" subtitle="Reported observations · illustrative sample view" action={{ icon: 'search-outline', onPress: () => router.push('/search') }} />
-    <FilterChips items={['1 hour', '24 hours', '7 days']} selected={windowFilter} onSelect={setWindowFilter} />
+    <PageHeader eyebrow="OBSERVATION NETWORK" title="Live map" subtitle="Reported observations from The UAP Atlas" action={{ icon: 'search-outline', onPress: () => router.push('/search') }} />
+    <FilterChips items={['30 days', '1 year', 'All']} selected={windowFilter} onSelect={setWindowFilter} />
     <Panel style={styles.mapPanel}>
-      <View style={styles.mapTop}><View style={styles.livePill}><View style={styles.liveDot} /><Text style={styles.liveText}>SAMPLE FEED</Text></View><Text style={styles.countText}>{visible.length} reports</Text></View>
+      <View style={styles.mapTop}><View style={styles.livePill}><View style={styles.liveDot} /><Text style={styles.liveText}>UAP ATLAS</Text></View><Text style={styles.countText}>{visible.length} reports</Text></View>
       <View style={styles.mapArea}>
         <Globe3D
-          markers={visible.slice(0, 12)}
+          markers={markers}
           selectedId={selected?.id}
           onSelect={(id) => setSelected(visible.find((report) => report.id === id) ?? null)}
           onInteractionChange={(active) => setScrollEnabled(!active)}
         />
-        <View style={styles.mapLegend}><View style={styles.legendDot} /><Text style={styles.legendText}>Drag to rotate · tap a marker</Text></View>
+        <View style={styles.mapLegend}><View style={[styles.legendDot, { backgroundColor: '#FF4D4F' }]} /><Text style={styles.legendText}>&lt;7d</Text><View style={[styles.legendDot, { backgroundColor: '#FFD23F' }]} /><Text style={styles.legendText}>&lt;30d</Text><View style={[styles.legendDot, { backgroundColor: '#3D8BFF' }]} /><Text style={styles.legendText}>older</Text></View>
       </View>
-      <Text style={styles.mapFootnote}>Illustrative map points. Locations and reports are sample content, not a live or verified feed.</Text>
+      <Text style={styles.mapFootnote}>Data: NUFORC via The UAP Atlas (city-level coordinates). Reports are unverified. Showing up to 600 newest markers.</Text>
     </Panel>
     {selected ? <Panel style={styles.selectedCard}>
       <View style={styles.selectedHeader}><View><Text style={styles.kicker}>SELECTED REPORT</Text><Text style={styles.selectedTitle}>{selected.location}</Text></View><TouchableOpacity onPress={() => setSelected(null)}><Ionicons name="close" size={19} color={colors.muted} /></TouchableOpacity></View>
-      <Text style={styles.selectedDescription}>{selected.description}</Text>
+      <Text style={styles.selectedDescription}>{selected.description}</Text><Text style={styles.selectedDescription}>{new Date(selected.timestamp).toLocaleDateString()}</Text>
       <TouchableOpacity onPress={() => router.push(`/sighting/${selected.id}`)} style={styles.detailLink}><Text style={styles.detailText}>Open full report</Text><Ionicons name="arrow-forward" size={14} color={colors.cyan} /></TouchableOpacity>
     </Panel> : null}
     <View style={styles.listHeader}><Text style={styles.sectionTitle}>Recent reports</Text><Text style={styles.sectionMeta}>Select a marker or report</Text></View>

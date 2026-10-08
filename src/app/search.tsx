@@ -1,15 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Badge, Page, PageHeader, Panel } from '../components/ui';
-import { celestialEvents, launches, sightings } from '../mock-data';
+import { celestialEvents, launches } from '../mock-data';
+import { dataSource } from '../services';
+import type { Sighting } from '../types';
 import { colors } from '../theme';
 
 type Result = { id: string; title: string; detail: string; kind: string; route: string };
 
 export default function SearchScreen() {
   const [query, setQuery] = useState('');
+  const [sightings, setSightings] = useState<Sighting[]>([]);
+  useEffect(() => { dataSource.getSightings().then(setSightings); }, []);
   const results = useMemo<Result[]>(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return [];
@@ -18,7 +22,7 @@ export default function SearchScreen() {
       ...launches.filter((item) => `${item.mission} ${item.rocket} ${item.provider}`.toLowerCase().includes(needle)).map((item) => ({ id: item.id, title: item.mission, detail: `${item.rocket} · ${item.provider}`, kind: 'Launch', route: '/launches' })),
       ...celestialEvents.filter((item) => `${item.name} ${item.kind} ${item.visibility}`.toLowerCase().includes(needle)).map((item) => ({ id: item.id, title: item.name, detail: item.visibility, kind: 'Sky event', route: '/events' })),
     ];
-  }, [query]);
+  }, [query, sightings]);
   return <Page>
     <PageHeader eyebrow="DISCOVERY" title="Search" subtitle="Search reports, missions and sky events." />
     <View style={styles.searchBox}><Ionicons name="search-outline" size={19} color={colors.cyan} /><TextInput autoFocus placeholder="Try “Jupiter”, “Phoenix” or “launch”" placeholderTextColor={colors.faint} value={query} onChangeText={setQuery} style={styles.input} returnKeyType="search" /><TouchableOpacity onPress={() => setQuery('')}><Ionicons name="close-circle" size={17} color={colors.faint} /></TouchableOpacity></View>

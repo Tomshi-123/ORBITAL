@@ -7,6 +7,7 @@ import { GlobePreview } from '../../components/GlobePreview';
 import { ActionButton, Badge, Page, PageHeader, Panel, SectionTitle, SightingRow, StatCard } from '../../components/ui';
 import { dataSource } from '../../services';
 import { colors } from '../../theme';
+import { markerColor } from '../../services/uapAtlas';
 import type { Launch, Sighting } from '../../types';
 
 export default function OverviewScreen() {
@@ -40,10 +41,10 @@ export default function OverviewScreen() {
       </View>
     </View>
     <View style={styles.stats}>
-      <StatCard label="Reports · 24H" value="30" caption="Community sample" icon="radio-outline" />
+      <StatCard label="Reports · 24H" value={String(allReports.filter((r) => Date.now() - new Date(r.timestamp).getTime() < 86_400_000).length)} caption="UAP Atlas" icon="radio-outline" />
       <StatCard label="Upcoming launches" value="08" caption="Demo schedule" icon="rocket-outline" />
     </View>
-    <GlobePreview markers={allReports.slice(0, 12)} onInteractionChange={(active) => setScrollEnabled(!active)} />
+    <GlobePreview markers={allReports.slice(0, 300).map((r) => ({ id: r.id, latitude: r.latitude, longitude: r.longitude, color: markerColor(r.timestamp) }))} onInteractionChange={(active) => setScrollEnabled(!active)} />
     {topLaunch ? <Panel style={styles.launchPanel}>
       <View style={styles.launchHeader}><View><Text style={styles.smallLabel}>NEXT LAUNCH · SAMPLE SCHEDULE</Text><Text style={styles.launchName}>{topLaunch.mission}</Text></View><Badge tone="green">SCHEDULED</Badge></View>
       <Text style={styles.launchMeta}>{topLaunch.rocket}  ·  {topLaunch.location}</Text>
@@ -52,7 +53,7 @@ export default function OverviewScreen() {
     </Panel> : null}
     <View style={styles.sectionHead}><SectionTitle title="Latest reports" action="All reports" onAction={() => router.push('/map')} /></View>
     <Panel style={styles.listPanel}>{recent.map((item) => <SightingRow key={item.id} sighting={item} />)}</Panel>
-    <Text style={styles.disclaimer}>Reports are submitted observations, not independently confirmed events. Sample content is fictional.</Text>
+    <Text style={styles.disclaimer}>Reports are submitted observations, not independently confirmed events. Data: NUFORC via The UAP Atlas.</Text>
   </Page>;
 }
 

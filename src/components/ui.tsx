@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { markerColor } from '../services/uapAtlas';
 import type { Sighting } from '../types';
 import { colors, radii } from '../theme';
 
@@ -75,14 +76,14 @@ export function StatCard({ label, value, caption, icon }: { label: string; value
 export function SightingRow({ sighting, compact = false }: { sighting: Sighting; compact?: boolean }) {
   const tone = sighting.confidence === 'High' ? 'green' : sighting.confidence === 'Medium' ? 'amber' : 'muted';
   return <TouchableOpacity style={styles.sightingRow} activeOpacity={0.75} onPress={() => router.push(`/sighting/${sighting.id}`)}>
-    <View style={styles.sightingDot} />
+    <View style={[styles.sightingDot, { backgroundColor: markerColor(sighting.timestamp) }]} />
     <View style={styles.sightingCopy}>
       <Text style={styles.rowTitle} numberOfLines={1}>{sighting.location}</Text>
-      <Text style={styles.rowMeta} numberOfLines={1}>{compact ? sighting.objectType : `${sighting.objectType}  ·  ${sighting.witnesses} witness${sighting.witnesses === 1 ? '' : 'es'}`}</Text>
+      <Text style={styles.rowMeta} numberOfLines={1}>{sighting.objectType}</Text>
     </View>
     <View style={styles.rowRight}>
       <Badge tone={tone}>{sighting.confidence}</Badge>
-      <Text style={styles.timeText}>{new Date(sighting.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+      <Text style={styles.timeText}>{new Date(sighting.timestamp).toLocaleDateString()}</Text>
     </View>
   </TouchableOpacity>;
 }
