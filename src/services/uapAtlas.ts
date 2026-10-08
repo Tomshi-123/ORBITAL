@@ -2,7 +2,7 @@ import type { Sighting } from '../types';
 
 const BASE = 'https://theuapatlas.com/api/export?format=json&from=2010&to=2026';
 // The API returns oldest first, so the newest records are fetched from the tail.
-const NEWEST_COUNT = 5000;
+const NEWEST_COUNT = 1000;
 
 type AtlasRecord = {
   id: string;

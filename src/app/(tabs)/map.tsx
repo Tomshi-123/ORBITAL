@@ -19,7 +19,7 @@ export default function MapScreen() {
   const days = windowFilter === '30 days' ? 30 : windowFilter === '1 year' ? 365 : Infinity;
   const cutoff = Date.now() - days * 86_400_000;
   const visible = reports.filter((report) => new Date(report.timestamp).getTime() >= cutoff);
-  const markers = useMemo(() => visible.slice(0, 600).map((report) => ({ id: report.id, latitude: report.latitude, longitude: report.longitude, color: markerColor(report.timestamp) })), [visible]);
+  const markers = useMemo(() => visible.slice(0, 150).map((report) => ({ id: report.id, latitude: report.latitude, longitude: report.longitude, color: markerColor(report.timestamp) })), [visible]);
   return <Page scrollEnabled={scrollEnabled}>
     <PageHeader eyebrow="OBSERVATION NETWORK" title="Live map" subtitle="Reported observations from The UAP Atlas" action={{ icon: 'search-outline', onPress: () => router.push('/search') }} />
     <FilterChips items={['30 days', '1 year', 'All']} selected={windowFilter} onSelect={setWindowFilter} />
@@ -34,7 +34,7 @@ export default function MapScreen() {
         />
         <View style={styles.mapLegend}><View style={[styles.legendDot, { backgroundColor: '#FF4D4F' }]} /><Text style={styles.legendText}>&lt;7d</Text><View style={[styles.legendDot, { backgroundColor: '#FFD23F' }]} /><Text style={styles.legendText}>&lt;30d</Text><View style={[styles.legendDot, { backgroundColor: '#3D8BFF' }]} /><Text style={styles.legendText}>older</Text></View>
       </View>
-      <Text style={styles.mapFootnote}>Data: NUFORC via The UAP Atlas (city-level coordinates). Reports are unverified. Showing up to 600 newest markers.</Text>
+      <Text style={styles.mapFootnote}>Data: NUFORC via The UAP Atlas (city-level coordinates). Reports are unverified. Showing up to 150 newest markers.</Text>
     </Panel>
     {selected ? <Panel style={styles.selectedCard}>
       <View style={styles.selectedHeader}><View><Text style={styles.kicker}>SELECTED REPORT</Text><Text style={styles.selectedTitle}>{selected.location}</Text></View><TouchableOpacity onPress={() => setSelected(null)}><Ionicons name="close" size={19} color={colors.muted} /></TouchableOpacity></View>

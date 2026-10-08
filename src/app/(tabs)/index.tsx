@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,7 @@ export default function OverviewScreen() {
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const [topLaunch, setTopLaunch] = useState<Launch | null>(null);
 
+  const globeMarkers = useMemo(() => allReports.slice(0, 100).map((r) => ({ id: r.id, latitude: r.latitude, longitude: r.longitude, color: markerColor(r.timestamp) })), [allReports]);
   useEffect(() => {
     let active = true;
     Promise.all([dataSource.getSightings(), dataSource.getLaunches()]).then(([reports, upcoming]) => {
@@ -44,7 +45,7 @@ export default function OverviewScreen() {
       <StatCard label="Reports · 24H" value={String(allReports.filter((r) => Date.now() - new Date(r.timestamp).getTime() < 86_400_000).length)} caption="UAP Atlas" icon="radio-outline" />
       <StatCard label="Upcoming launches" value="08" caption="Demo schedule" icon="rocket-outline" />
     </View>
-    <GlobePreview markers={allReports.slice(0, 300).map((r) => ({ id: r.id, latitude: r.latitude, longitude: r.longitude, color: markerColor(r.timestamp) }))} onInteractionChange={(active) => setScrollEnabled(!active)} />
+    <GlobePreview markers={globeMarkers} onInteractionChange={(active) => setScrollEnabled(!active)} />
     {topLaunch ? <Panel style={styles.launchPanel}>
       <View style={styles.launchHeader}><View><Text style={styles.smallLabel}>NEXT LAUNCH · SAMPLE SCHEDULE</Text><Text style={styles.launchName}>{topLaunch.mission}</Text></View><Badge tone="green">SCHEDULED</Badge></View>
       <Text style={styles.launchMeta}>{topLaunch.rocket}  ·  {topLaunch.location}</Text>
