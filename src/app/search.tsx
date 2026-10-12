@@ -3,9 +3,9 @@ import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Badge, Page, PageHeader, Panel } from '../components/ui';
-import { celestialEvents, launches } from '../mock-data';
+import { celestialEvents, launches as fallbackLaunches } from '../mock-data';
 import { dataSource } from '../services';
-import type { Sighting } from '../types';
+import type { Launch, Sighting } from '../types';
 import { colors } from '../theme';
 
 type Result = { id: string; title: string; detail: string; kind: string; route: string };
@@ -13,16 +13,22 @@ type Result = { id: string; title: string; detail: string; kind: string; route: 
 export default function SearchScreen() {
   const [query, setQuery] = useState('');
   const [sightings, setSightings] = useState<Sighting[]>([]);
-  useEffect(() => { dataSource.getSightings().then(setSightings); }, []);
+  const [launchesList, setLaunchesList] = useState<Launch[]>(fallbackLaunches);
+  useEffect(() => {
+    dataSource.getSightings().then(setSightings);
+    dataSource.getLaunches().then((items) => {
+      if (items.length > 0) setLaunchesList(items);
+    });
+  }, []);
   const results = useMemo<Result[]>(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return [];
     return [
       ...sightings.filter((item) => `${item.location} ${item.country} ${item.objectType} ${item.description}`.toLowerCase().includes(needle)).map((item) => ({ id: item.id, title: item.location, detail: item.objectType, kind: 'Sighting', route: `/sighting/${item.id}` })),
-      ...launches.filter((item) => `${item.mission} ${item.rocket} ${item.provider}`.toLowerCase().includes(needle)).map((item) => ({ id: item.id, title: item.mission, detail: `${item.rocket} · ${item.provider}`, kind: 'Launch', route: '/launches' })),
+      ...launchesList.filter((item) => `${item.mission} ${item.rocket} ${item.provider}`.toLowerCase().includes(needle)).map((item) => ({ id: item.id, title: item.mission, detail: `${item.rocket} · ${item.provider}`, kind: 'Launch', route: '/launches' })),
       ...celestialEvents.filter((item) => `${item.name} ${item.kind} ${item.visibility}`.toLowerCase().includes(needle)).map((item) => ({ id: item.id, title: item.name, detail: item.visibility, kind: 'Sky event', route: '/events' })),
     ];
-  }, [query, sightings]);
+  }, [query, sightings, launchesList]);
   return <Page>
     <PageHeader eyebrow="DISCOVERY" title="Search" subtitle="Search reports, missions and sky events." />
     <View style={styles.searchBox}><Ionicons name="search-outline" size={19} color={colors.cyan} /><TextInput autoFocus placeholder="Try “Jupiter”, “Phoenix” or “launch”" placeholderTextColor={colors.faint} value={query} onChangeText={setQuery} style={styles.input} returnKeyType="search" /><TouchableOpacity onPress={() => setQuery('')}><Ionicons name="close-circle" size={17} color={colors.faint} /></TouchableOpacity></View>

@@ -15,6 +15,7 @@ export default function OverviewScreen() {
   const [allReports, setAllReports] = useState<Sighting[]>([]);
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const [topLaunch, setTopLaunch] = useState<Launch | null>(null);
+  const [upcomingCount, setUpcomingCount] = useState<number>(8);
 
   const globeMarkers = useMemo(() => allReports.slice(0, 100).map((r) => ({ id: r.id, latitude: r.latitude, longitude: r.longitude, color: markerColor(r.timestamp) })), [allReports]);
   useEffect(() => {
@@ -24,6 +25,9 @@ export default function OverviewScreen() {
       setRecent(reports.slice(0, 3));
       setAllReports(reports);
       setTopLaunch(upcoming[0] ?? null);
+      if (upcoming.length > 0) {
+        setUpcomingCount(upcoming.length);
+      }
     });
     return () => { active = false; };
   }, []);
@@ -43,12 +47,18 @@ export default function OverviewScreen() {
     </View>
     <View style={styles.stats}>
       <StatCard label="Reports · 24H" value={String(allReports.filter((r) => Date.now() - new Date(r.timestamp).getTime() < 86_400_000).length)} caption="UAP Atlas" icon="radio-outline" />
-      <StatCard label="Upcoming launches" value="08" caption="Demo schedule" icon="rocket-outline" />
+      <StatCard label="Upcoming launches" value={String(upcomingCount).padStart(2, '0')} caption="Live schedule" icon="rocket-outline" />
     </View>
     <GlobePreview markers={globeMarkers} onInteractionChange={(active) => setScrollEnabled(!active)} />
     {topLaunch ? <Panel style={styles.launchPanel}>
-      <View style={styles.launchHeader}><View><Text style={styles.smallLabel}>NEXT LAUNCH · SAMPLE SCHEDULE</Text><Text style={styles.launchName}>{topLaunch.mission}</Text></View><Badge tone="green">SCHEDULED</Badge></View>
-      <Text style={styles.launchMeta}>{topLaunch.rocket}  ·  {topLaunch.location}</Text>
+      <View style={styles.launchHeader}>
+        <View style={styles.launchHeaderCopy}>
+          <Text style={styles.smallLabel}>NEXT LAUNCH · THE SPACE DEVS</Text>
+          <Text style={styles.launchName} numberOfLines={2}>{topLaunch.mission}</Text>
+        </View>
+        <Badge tone="green">{topLaunch.status.toUpperCase()}</Badge>
+      </View>
+      <Text style={styles.launchMeta} numberOfLines={2}>{topLaunch.rocket}  ·  {topLaunch.location}</Text>
       <View style={styles.countdownWrap}><Countdown target={topLaunch.launchAt} compact /></View>
       <ActionButton label="View launch schedule" icon="arrow-forward" secondary onPress={() => router.push('/launches')} />
     </Panel> : null}
@@ -71,12 +81,13 @@ const styles = StyleSheet.create({
   orbitTwo: { position: 'absolute', width: 130, height: 130, borderRadius: 70, borderWidth: 1, borderColor: '#31546A', transform: [{ rotate: '28deg' }, { scaleX: 1.6 }] },
   heroCore: { width: 93, height: 93, borderRadius: 48, borderWidth: 1, borderColor: '#2B7084', backgroundColor: '#103248', justifyContent: 'center', alignItems: 'center', shadowColor: colors.cyan, shadowOpacity: 0.3, shadowRadius: 20 },
   stats: { flexDirection: 'row', gap: 10 },
-  launchPanel: { gap: 11 },
-  launchHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
+  launchPanel: { gap: 11, overflow: 'hidden' },
+  launchHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
+  launchHeaderCopy: { flex: 1, marginRight: 8 },
   smallLabel: { color: colors.muted, fontSize: 9, fontWeight: '700', letterSpacing: 1.1 },
   launchName: { color: colors.text, fontSize: 15, fontWeight: '700', marginTop: 5 },
   launchMeta: { color: colors.muted, fontSize: 10, lineHeight: 16 },
-  countdownWrap: { paddingVertical: 5 },
+  countdownWrap: { paddingVertical: 5, overflow: 'hidden' },
   sectionHead: { marginTop: 0 },
   listPanel: { paddingTop: 4, paddingBottom: 4 },
   storyPanel: { gap: 9 },

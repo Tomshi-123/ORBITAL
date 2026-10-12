@@ -1,6 +1,7 @@
 import { articles, cameras, celestialEvents, launches, sightings } from '../mock-data';
 import type { Article, CameraSource, CelestialEvent, Launch, Sighting } from '../types';
 import { getAtlasSightings } from './uapAtlas';
+import { getUpcomingLaunches } from './launches';
 
 export interface OrbitalDataSource {
   getSightings(): Promise<Sighting[]>;
@@ -22,4 +23,6 @@ export const mockDataSource: OrbitalDataSource = {
 export const dataSource: OrbitalDataSource = {
   ...mockDataSource,
   getSightings: () => getAtlasSightings().catch(() => []),
+  getLaunches: () => getUpcomingLaunches().catch(() => launches),
 };
+
