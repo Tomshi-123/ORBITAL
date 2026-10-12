@@ -92,9 +92,5 @@ export const celestialEvents: CelestialEvent[] = eventNames.map(([name, kind, de
 }));
 
 export const cameras: CameraSource[] = [
-  { id: 'cam-01', name: 'Earth from orbit', category: 'Earth', location: 'Low Earth orbit', source: 'Demo stream slot', available: false },
-  { id: 'cam-02', name: 'Station exterior', category: 'ISS', location: 'International Space Station', source: 'Demo stream slot', available: false },
-  { id: 'cam-03', name: 'Launch pad overview', category: 'Launch pads', location: 'Kennedy Space Center, Florida', source: 'Demo stream slot', available: false },
-  { id: 'cam-04', name: 'Southern sky survey', category: 'Observatories', location: 'Atacama Desert, Chile', source: 'Demo stream slot', available: false },
-  { id: 'cam-05', name: 'Deep field monitor', category: 'Deep space', location: 'Remote observatory network', source: 'Demo stream slot', available: false },
+  { id: 'cam-01', name: 'Earth from orbit', category: 'Earth', location: 'Low Earth orbit', source: '4QJEibrt9B8', available: true },
 ];
