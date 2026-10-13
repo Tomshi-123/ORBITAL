@@ -28,9 +28,15 @@ type SpaceDevsLaunchItem = {
     name?: string;
     type?: string;
     description?: string;
+    orbit?: {
+      name?: string;
+      abbrev?: string;
+    };
   };
   pad?: {
     name?: string;
+    latitude?: string | number;
+    longitude?: string | number;
     location?: {
       name?: string;
       country_code?: string;
@@ -61,6 +67,17 @@ function mapLaunchStatus(status?: SpaceDevsStatus): Launch['status'] {
   return 'Scheduled';
 }
 
+function detectStation(text: string): Launch['station'] {
+  if (/shenzhou|tianzhou|mengzhou/i.test(text)) return 'Tiangong';
+  if (/progress|\bcrs\b|cygnus|crew-|axiom|\bax-\d|soyuz ms|htv|dream chaser|starliner|\biss\b/i.test(text)) return 'ISS';
+  return undefined;
+}
+
+function toCoordinate(value?: string | number): number | undefined {
+  const parsed = typeof value === 'number' ? value : parseFloat(value ?? '');
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 export function toLaunch(item: SpaceDevsLaunchItem): Launch {
   const mission = item.mission?.name || item.name || 'Orbital Mission';
   const rocket = item.rocket?.configuration?.name || 'Launch Vehicle';
@@ -79,6 +96,11 @@ export function toLaunch(item: SpaceDevsLaunchItem): Launch {
     launchAt,
     missionType,
     status,
+    padLatitude: toCoordinate(item.pad?.latitude),
+    padLongitude: toCoordinate(item.pad?.longitude),
+    orbitName: item.mission?.orbit?.name,
+    orbitAbbrev: item.mission?.orbit?.abbrev,
+    station: detectStation(`${item.name ?? ''} ${mission} ${item.mission?.description ?? ''}`),
   };
 }
 

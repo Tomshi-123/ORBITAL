@@ -2,6 +2,12 @@ import type { Sighting } from '../types';
 
 const API_URL =
   'https://api.apify.com/v2/datasets/9LOx5y1hbpyXDXRR3/items?signature=MC4xNzkzMDQwOTI1OTg3LjFCMHJtbVJIZU9FQ0VUWFFFS1Q5TA&format=json&clean=true';
+const ISS_API_URL = 'https://api.wheretheiss.at/v1/satellites/25544';
+
+export type IssPosition = {
+  latitude: number;
+  longitude: number;
+};
 
 type ApifyRecord = {
   schema_version?: string;
@@ -41,6 +47,29 @@ export function markerColor(timestamp: string, now = Date.now()) {
   if (age < 7 * DAY) return '#FF4D4F';
   if (age < 30 * DAY) return '#FFD23F';
   return '#3D8BFF';
+}
+
+export async function getIssPosition(): Promise<IssPosition> {
+  const response = await fetch(ISS_API_URL);
+  if (!response.ok) {
+    throw new Error(`ISS position request failed: ${response.status}`);
+  }
+
+  const data: Partial<IssPosition> = await response.json();
+  if (
+    typeof data.latitude !== 'number' ||
+    typeof data.longitude !== 'number' ||
+    !Number.isFinite(data.latitude) ||
+    !Number.isFinite(data.longitude) ||
+    data.latitude < -90 ||
+    data.latitude > 90 ||
+    data.longitude < -180 ||
+    data.longitude > 180
+  ) {
+    throw new Error('Unexpected response format from ISS position API');
+  }
+
+  return { latitude: data.latitude, longitude: data.longitude };
 }
 
 const CITY_COORDS: Record<string, [number, number]> = {
@@ -200,4 +229,3 @@ export function getAtlasSightings(): Promise<Sighting[]> {
   }
   return cache;
 }
-

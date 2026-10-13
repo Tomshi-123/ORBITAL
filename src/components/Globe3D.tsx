@@ -1,20 +1,25 @@
-import { useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder, View } from 'react-native';
-import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, Path, RadialGradient, Stop, Text as SvgText } from 'react-native-svg';
 import { colors } from '../theme';
-
-export type GlobeMarker = { id: string; latitude: number; longitude: number; color?: string };
-
-type Props = {
-  markers: GlobeMarker[];
-  selectedId?: string | null;
-  onSelect?: (id: string) => void;
-  onInteractionChange?: (active: boolean) => void;
-  size?: number;
-};
 
 type LonLat = [number, number];
 
+export type GlobeMarker = { id: string; latitude: number; longitude: number; color?: string; label?: string };
+
+export type GlobePath = { id: string; points: LonLat[]; color: string; highlighted?: boolean };
+
+type Props = {
+  markers: GlobeMarker[];
+  paths?: GlobePath[];
+  orbiters?: { latitude: number; longitude: number }[];
+  orbiterColor?: string;
+  selectedId?: string | null;
+  onSelect?: (id: string) => void;
+  onInteractionChange?: (active: boolean) => void;
+  focusMarkerId?: string;
+  size?: number;
+};
 
 const LAND: LonLat[][] = [
   [[-168, 66], [-140, 70], [-95, 72], [-80, 73], [-62, 60], [-55, 50], [-67, 44], [-76, 35], [-81, 25], [-90, 30], [-97, 26], [-97, 21], [-87, 21], [-88, 16], [-83, 10], [-77, 8], [-86, 12], [-95, 16], [-105, 20], [-110, 24], [-117, 32], [-124, 40], [-125, 49], [-135, 58], [-152, 59], [-165, 55]],
@@ -50,15 +55,25 @@ function project(lon: number, lat: number, lon0: number, lat0: number) {
   };
 }
 
-export function Globe3D({ markers, selectedId, onSelect, onInteractionChange, size = 300 }: Props) {
+export function Globe3D({ markers, paths = [], orbiters = [], orbiterColor = '#B6FF3B', selectedId, onSelect, onInteractionChange, focusMarkerId, size = 300 }: Props) {
   const [rotation, setRotation] = useState({ lon: 10, lat: 20 });
+  const hasFocusedMarker = useRef(false);
   const start = useRef(rotation);
   const current = useRef(rotation);
   current.current = rotation;
   const callbacks = useRef({ onInteractionChange });
   callbacks.current = { onInteractionChange };
 
-  const r = size / 2 - 6;
+  useEffect(() => {
+    if (!focusMarkerId || hasFocusedMarker.current) return;
+    const marker = markers.find((item) => item.id === focusMarkerId);
+    if (marker) {
+      setRotation({ lon: marker.longitude, lat: marker.latitude });
+      hasFocusedMarker.current = true;
+    }
+  }, [focusMarkerId, markers]);
+
+  const r = size / 2 - 16;
   const c = size / 2;
 
   const pan = useMemo(() => PanResponder.create({
@@ -104,6 +119,28 @@ export function Globe3D({ markers, selectedId, onSelect, onInteractionChange, si
   for (let lo = -180; lo < 180; lo += 30) addLine(Array.from({ length: 37 }, (_, i) => [lo, -90 + i * 5] as LonLat));
   for (let la = -60; la <= 60; la += 30) addLine(Array.from({ length: 73 }, (_, i) => [-180 + i * 5, la] as LonLat));
 
+  const orbiterDots = useMemo(() => {
+    // Drawn slightly outside the globe radius so satellites appear to hover above the atmosphere.
+    const lift = 1.07;
+    return orbiters.flatMap((s, i) => {
+      const p = project(s.longitude, s.latitude, lon, lat);
+      if (p.z < 0 && Math.hypot(p.x, p.y) * lift <= 1) return [];
+      return [{ key: i, x: c + p.x * r * lift, y: c - p.y * r * lift }];
+    });
+  }, [orbiters, lon, lat, c, r]);
+
+  const orbitPaths = paths.map((path) => {
+    let d = '';
+    let pen = false;
+    path.points.forEach(([lo, la]) => {
+      const p = project(lo, la, lon, lat);
+      if (p.z < 0) { pen = false; return; }
+      d += `${pen ? 'L' : 'M'}${(c + p.x * r).toFixed(1)} ${(c - p.y * r).toFixed(1)} `;
+      pen = true;
+    });
+    return { ...path, d };
+  }).filter((path) => path.d);
+
   return (
     <View {...pan.panHandlers} style={{ width: size, height: size, alignSelf: 'center' }}>
       <Svg width={size} height={size}>
@@ -116,21 +153,47 @@ export function Globe3D({ markers, selectedId, onSelect, onInteractionChange, si
         <Circle cx={c} cy={c} r={r} fill="url(#ocean)" stroke="#2D6984" strokeWidth={1} />
         {landPaths.map((d, i) => <Path key={i} d={d} fill="#1B3A4A" stroke="#2F5A70" strokeWidth={0.8} />)}
         {grid.map((d, i) => <Path key={`g${i}`} d={d} stroke="#1E4258" strokeWidth={0.5} fill="none" opacity={0.7} />)}
-        {markers.map((m) => {
-          const p = project(m.longitude, m.latitude, lon, lat);
+        {orbitPaths.map((path) => (
+          <Path
+            key={`o${path.id}`}
+            d={path.d}
+            stroke={path.color}
+            strokeWidth={path.highlighted ? 2 : 1}
+            strokeDasharray={path.highlighted ? undefined : '4 3'}
+            opacity={path.highlighted ? 1 : 0.55}
+            fill="none"
+          />
+        ))}
+        {orbiterDots.map((dot) => <Circle key={`s${dot.key}`} cx={dot.x} cy={dot.y} r={1.6} fill={orbiterColor} />)}
+                {markers.map((m) => {
+                  const p = project(m.longitude, m.latitude, lon, lat);
           if (p.z <= 0.05) return null;
           const selected = m.id === selectedId;
+          const x = c + p.x * r;
+          const y = c - p.y * r;
           return (
-            <Circle
-              key={m.id}
-              cx={c + p.x * r}
-              cy={c - p.y * r}
-              r={selected ? 7 : 5}
-              fill={m.color ?? colors.blue}
-              stroke={selected ? '#FFFFFF' : '#D5F4FF'}
-              strokeWidth={selected ? 2 : 1}
-              onPress={() => onSelect?.(m.id)}
-            />
+            <Fragment key={m.id}>
+              <Circle
+                cx={x}
+                cy={y}
+                r={selected ? 7 : (m.label ? 4 : 5)}
+                fill={m.color ?? colors.blue}
+                stroke={selected ? '#FFFFFF' : '#D5F4FF'}
+                strokeWidth={selected ? 2 : 1}
+                onPress={() => onSelect?.(m.id)}
+              />
+              {m.label ? (
+                <SvgText
+                  x={x + 7}
+                  y={y + 3}
+                  fill={m.color ?? colors.text}
+                  fontSize={9}
+                  fontWeight="700"
+                >
+                  {m.label}
+                </SvgText>
+              ) : null}
+            </Fragment>
           );
         })}
       </Svg>

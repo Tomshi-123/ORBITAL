@@ -35,6 +35,11 @@ export type Launch = {
   launchAt: string;
   missionType: string;
   status: 'Scheduled' | 'Delayed' | 'Scrubbed' | 'Launched' | 'Completed';
+  padLatitude?: number;
+  padLongitude?: number;
+  orbitName?: string;
+  orbitAbbrev?: string;
+  station?: 'ISS' | 'Tiangong';
 };
 
 export type CelestialEvent = {
