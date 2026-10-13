@@ -25,7 +25,7 @@ export default function SearchScreen() {
     if (!needle) return [];
     return [
       ...sightings.filter((item) => `${item.location} ${item.country} ${item.objectType} ${item.description}`.toLowerCase().includes(needle)).map((item) => ({ id: item.id, title: item.location, detail: item.objectType, kind: 'Sighting', route: `/sighting/${item.id}` })),
-      ...launchesList.filter((item) => `${item.mission} ${item.rocket} ${item.provider}`.toLowerCase().includes(needle)).map((item) => ({ id: item.id, title: item.mission, detail: `${item.rocket} · ${item.provider}`, kind: 'Launch', route: '/launches' })),
+      ...launchesList.filter((item) => `${item.mission} ${item.rocket} ${item.provider}`.toLowerCase().includes(needle)).map((item) => ({ id: item.id, title: item.mission, detail: `${item.rocket} · ${item.provider}`, kind: 'Launch', route: '/map' })),
       ...celestialEvents.filter((item) => `${item.name} ${item.kind} ${item.visibility}`.toLowerCase().includes(needle)).map((item) => ({ id: item.id, title: item.name, detail: item.visibility, kind: 'Sky event', route: '/events' })),
     ];
   }, [query, sightings, launchesList]);

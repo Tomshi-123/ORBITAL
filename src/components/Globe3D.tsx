@@ -1,9 +1,13 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, View } from 'react-native';
+import { PanResponder, Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Defs, Path, RadialGradient, Stop, Text as SvgText } from 'react-native-svg';
 import { colors } from '../theme';
 
+import { asteroidPlanePosition, type Asteroid } from '../services/asteroids';
+
 type LonLat = [number, number];
+
+const rad = (deg: number) => (deg * Math.PI) / 180;
 
 export type GlobeMarker = { id: string; latitude: number; longitude: number; color?: string; label?: string };
 
@@ -20,7 +24,20 @@ type Props = {
   onInteractionChange?: (active: boolean) => void;
   focusMarkerId?: string;
   size?: number;
+  zoomable?: boolean;
+  showMoon?: boolean;
+  asteroids?: Asteroid[];
 };
+
+const MIN_ZOOM = 0.05;
+const MAX_ZOOM = 1;
+const DEFAULT_ZOOM = 0.55;
+const MOON_ANGLE = rad(35);
+
+// Stylised space scale: distances in lunar distances are compressed logarithmically so the Moon and nearby asteroids fit in view.
+function spaceRadius(ld: number) {
+  return 1.2 + 1.1 * Math.log(1 + ld);
+}
 
 const LAND: LonLat[][] = [
   [[-168, 66], [-140, 70], [-95, 72], [-80, 73], [-62, 60], [-55, 50], [-67, 44], [-76, 35], [-81, 25], [-90, 30], [-97, 26], [-97, 21], [-87, 21], [-88, 16], [-83, 10], [-77, 8], [-86, 12], [-95, 16], [-105, 20], [-110, 24], [-117, 32], [-124, 40], [-125, 49], [-135, 58], [-152, 59], [-165, 55]],
@@ -30,8 +47,6 @@ const LAND: LonLat[][] = [
   [[114, -22], [130, -12], [142, -11], [153, -26], [147, -38], [135, -35], [115, -34]],
   [[-55, 60], [-20, 70], [-20, 82], [-60, 82], [-70, 76]],
 ];
-
-const rad = (deg: number) => (deg * Math.PI) / 180;
 
 function densify(poly: LonLat[]): LonLat[] {
   const out: LonLat[] = [];
@@ -56,8 +71,9 @@ function project(lon: number, lat: number, lon0: number, lat0: number) {
   };
 }
 
-export function Globe3D({ markers, aurora = [], paths = [], orbiters = [], orbiterColor = '#B6FF3B', selectedId, onSelect, onInteractionChange, focusMarkerId, size = 300 }: Props) {
+export function Globe3D({ markers, aurora = [], paths = [], orbiters = [], orbiterColor = '#B6FF3B', selectedId, onSelect, onInteractionChange, focusMarkerId, size = 300, zoomable = false, showMoon = false, asteroids = [] }: Props) {
   const [rotation, setRotation] = useState({ lon: 10, lat: 20 });
+  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const hasFocusedMarker = useRef(false);
   const start = useRef(rotation);
   const current = useRef(rotation);
@@ -74,7 +90,7 @@ export function Globe3D({ markers, aurora = [], paths = [], orbiters = [], orbit
     }
   }, [focusMarkerId, markers]);
 
-  const r = size / 2 - 16;
+  const r = (size / 2 - 16) * (zoomable ? zoom : 1);
   const c = size / 2;
 
   const pan = useMemo(() => PanResponder.create({
@@ -153,15 +169,61 @@ export function Globe3D({ markers, aurora = [], paths = [], orbiters = [], orbit
     return { ...path, d };
   }).filter((path) => path.d);
 
+  const toScene = (xLd: number, yLd: number) => {
+    const rho = Math.hypot(xLd, yLd) || 1e-6;
+    const k = (spaceRadius(rho) * r) / rho;
+    return { x: c + xLd * k, y: c - yLd * k };
+  };
+  const inView = (x: number, y: number, pad = 0) => x >= pad && x <= size - pad && y >= pad && y <= size - pad;
+
+  const moon = useMemo(() => {
+    if (!zoomable || !showMoon) return null;
+    const mr = Math.max(4, r * 0.273);
+    const p = toScene(Math.cos(MOON_ANGLE), Math.sin(MOON_ANGLE));
+    if (!inView(p.x, p.y, mr)) return null;
+    return { mr, x: p.x, y: p.y };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomable, showMoon, r, size]);
+
+  const asteroidShapes = !zoomable ? [] : asteroids.map((a) => {
+    const now = Date.now();
+    const trackPoints: string[] = [];
+    for (let i = -20; i <= 20; i += 1) {
+      const offset = Math.sign(i) * (i / 20) ** 2 * 60;
+      const q = asteroidPlanePosition(a, a.approachMs, offset);
+      const s = toScene(q.x, q.y);
+      trackPoints.push(`${trackPoints.length ? 'L' : 'M'}${s.x.toFixed(1)} ${s.y.toFixed(1)}`);
+    }
+    const q = asteroidPlanePosition(a, now);
+    const dot = toScene(q.x, q.y);
+    return { a, d: trackPoints.join(' '), dot, visible: inView(dot.x, dot.y, 3) };
+  });
+
+  const zoomBy = (factor: number) => setZoom((z) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z * factor)));
+
   return (
     <View {...pan.panHandlers} style={{ width: size, height: size, alignSelf: 'center' }}>
       <Svg width={size} height={size}>
         <Defs>
+          <RadialGradient id="moon" cx="35%" cy="30%" r="80%">
+            <Stop offset="0" stopColor="#E4E7EA" />
+            <Stop offset="1" stopColor="#6E7780" />
+          </RadialGradient>
           <RadialGradient id="ocean" cx="40%" cy="35%" r="75%">
             <Stop offset="0" stopColor="#14354A" />
             <Stop offset="1" stopColor="#06101A" />
           </RadialGradient>
         </Defs>
+        {moon ? (
+          <>
+            <Circle cx={c} cy={c} r={spaceRadius(1) * r} stroke="#5B6770" strokeWidth={0.6} strokeDasharray="2 4" fill="none" opacity={0.6} />
+            <Circle cx={moon.x} cy={moon.y} r={moon.mr} fill="url(#moon)" />
+            <SvgText x={moon.x} y={Math.min(size - 2, moon.y + moon.mr + 10)} fill="#AEB7BF" fontSize={9} fontWeight="700" textAnchor="middle">Moon</SvgText>
+          </>
+        ) : null}
+        {asteroidShapes.map(({ a, d }) => (
+          <Path key={`a${a.id}`} d={d} stroke={a.hazardous ? '#FF4D4F' : '#FF8A8A'} strokeWidth={1} strokeDasharray="3 3" opacity={0.6} fill="none" />
+        ))}
         <Circle cx={c} cy={c} r={r} fill="url(#ocean)" stroke="#2D6984" strokeWidth={1} />
         {landPaths.map((d, i) => <Path key={i} d={d} fill="#1B3A4A" stroke="#2F5A70" strokeWidth={0.8} />)}
         {grid.map((d, i) => <Path key={`g${i}`} d={d} stroke="#1E4258" strokeWidth={0.5} fill="none" opacity={0.7} />)}
@@ -211,7 +273,26 @@ export function Globe3D({ markers, aurora = [], paths = [], orbiters = [], orbit
             </Fragment>
           );
         })}
+        {asteroidShapes.filter((s) => s.visible).map(({ a, dot }) => (
+          <Fragment key={`ad${a.id}`}>
+            <Circle cx={dot.x} cy={dot.y} r={3.5} fill="#FF2D2D" stroke="#FFD5D5" strokeWidth={0.8} />
+            <SvgText x={dot.x + 6} y={dot.y + 3} fill="#FF8A8A" fontSize={8} fontWeight="700">{a.name}</SvgText>
+          </Fragment>
+        ))}
       </Svg>
+      {zoomable ? (
+        <View style={{ position: 'absolute', right: 0, bottom: 0, flexDirection: 'row', gap: 6 }}>
+          {([['−', 1 / 1.3], ['+', 1.3]] as const).map(([label, factor]) => (
+            <Pressable
+              key={label}
+              onPress={() => zoomBy(factor)}
+              style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)' }}
+            >
+              <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
