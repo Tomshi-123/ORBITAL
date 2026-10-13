@@ -11,6 +11,7 @@ export type GlobePath = { id: string; points: LonLat[]; color: string; highlight
 
 type Props = {
   markers: GlobeMarker[];
+  aurora?: { latitude: number; longitude: number; intensity: 0 | 1 | 2 }[];
   paths?: GlobePath[];
   orbiters?: { latitude: number; longitude: number }[];
   orbiterColor?: string;
@@ -55,7 +56,7 @@ function project(lon: number, lat: number, lon0: number, lat0: number) {
   };
 }
 
-export function Globe3D({ markers, paths = [], orbiters = [], orbiterColor = '#B6FF3B', selectedId, onSelect, onInteractionChange, focusMarkerId, size = 300 }: Props) {
+export function Globe3D({ markers, aurora = [], paths = [], orbiters = [], orbiterColor = '#B6FF3B', selectedId, onSelect, onInteractionChange, focusMarkerId, size = 300 }: Props) {
   const [rotation, setRotation] = useState({ lon: 10, lat: 20 });
   const hasFocusedMarker = useRef(false);
   const start = useRef(rotation);
@@ -119,6 +120,17 @@ export function Globe3D({ markers, paths = [], orbiters = [], orbiterColor = '#B
   for (let lo = -180; lo < 180; lo += 30) addLine(Array.from({ length: 37 }, (_, i) => [lo, -90 + i * 5] as LonLat));
   for (let la = -60; la <= 60; la += 30) addLine(Array.from({ length: 73 }, (_, i) => [-180 + i * 5, la] as LonLat));
 
+  const auroraPaths = useMemo(() => {
+    // One path per intensity level, built from short round-capped dashes, keeps this to three SVG nodes.
+    const d = ['', '', ''];
+    aurora.forEach((cell) => {
+      const p = project(cell.longitude, cell.latitude, lon, lat);
+      if (p.z < 0.05) return;
+      d[cell.intensity] += `M${(c + p.x * r - 1).toFixed(1)} ${(c - p.y * r).toFixed(1)}h2`;
+    });
+    return d;
+  }, [aurora, lon, lat, c, r]);
+
   const orbiterDots = useMemo(() => {
     // Drawn slightly outside the globe radius so satellites appear to hover above the atmosphere.
     const lift = 1.07;
@@ -153,6 +165,9 @@ export function Globe3D({ markers, paths = [], orbiters = [], orbiterColor = '#B
         <Circle cx={c} cy={c} r={r} fill="url(#ocean)" stroke="#2D6984" strokeWidth={1} />
         {landPaths.map((d, i) => <Path key={i} d={d} fill="#1B3A4A" stroke="#2F5A70" strokeWidth={0.8} />)}
         {grid.map((d, i) => <Path key={`g${i}`} d={d} stroke="#1E4258" strokeWidth={0.5} fill="none" opacity={0.7} />)}
+        {auroraPaths[0] ? <Path d={auroraPaths[0]} stroke="#3DFF9A" strokeWidth={6} strokeLinecap="round" fill="none" opacity={0.3} /> : null}
+        {auroraPaths[1] ? <Path d={auroraPaths[1]} stroke="#3DFF9A" strokeWidth={6} strokeLinecap="round" fill="none" opacity={0.55} /> : null}
+        {auroraPaths[2] ? <Path d={auroraPaths[2]} stroke="#C86BFF" strokeWidth={6} strokeLinecap="round" fill="none" opacity={0.75} /> : null}
         {orbitPaths.map((path) => (
           <Path
             key={`o${path.id}`}

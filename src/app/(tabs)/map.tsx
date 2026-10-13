@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Globe3D, type GlobeMarker, type GlobePath } from '../../components/Globe3D';
 import { FilterChips, Page, PageHeader, Panel, SightingRow } from '../../components/ui';
 import { dataSource } from '../../services';
 import { orbitGroundTrack } from '../../services/orbits';
+import { getAuroraForecast, type AuroraCell } from '../../services/aurora';
 import { getSatelliteTracks, propagateSatellites, type SatellitePosition, type SatelliteTrack } from '../../services/satellites';
 import { getIssPosition, markerColor, type IssPosition } from '../../services/uapAtlas';
 import { colors } from '../../theme';
@@ -18,14 +19,18 @@ const LAYERS = [
   { key: 'iss', label: 'ISS' },
   { key: 'launches', label: 'Launch orbits' },
   { key: 'satellites', label: 'Satellites' },
+  { key: 'aurora', label: 'Aurora' },
 ] as const;
 type LayerKey = (typeof LAYERS)[number]['key'];
 
 export default function MapScreen() {
+  const { width } = useWindowDimensions();
+  const globeSize = Math.max(280, Math.min(width - 24, 420));
   const [reports, setReports] = useState<Sighting[]>([]);
   const [launches, setLaunches] = useState<Launch[]>([]);
   const [selectedLaunchId, setSelectedLaunchId] = useState<string | null>(null);
-  const [layers, setLayers] = useState<Record<LayerKey, boolean>>({ sightings: true, iss: true, launches: true, satellites: true });
+  const [layers, setLayers] = useState<Record<LayerKey, boolean>>({ sightings: true, iss: true, launches: true, satellites: true, aurora: true });
+  const [auroraCells, setAuroraCells] = useState<AuroraCell[]>([]);
   const [satelliteTracks, setSatelliteTracks] = useState<SatelliteTrack[]>([]);
   const [satellites, setSatellites] = useState<SatellitePosition[]>([]);
   const [issPosition, setIssPosition] = useState<IssPosition | null>(null);
@@ -132,20 +137,23 @@ export default function MapScreen() {
         <Globe3D
           markers={markers}
           paths={paths}
+          aurora={layers.aurora ? auroraCells : undefined}
           orbiters={satellites}
           orbiterColor={SATELLITE_COLOR}
           focusMarkerId="iss"
           selectedId={selectedLaunchId ? `launch:${selectedLaunchId}` : selected?.id}
           onSelect={handleSelect}
           onInteractionChange={(active) => setScrollEnabled(!active)}
+          size={globeSize}
         />
-        <View style={styles.mapLegend}><View style={[styles.legendDot, { backgroundColor: '#FF4D4F' }]} /><Text style={styles.legendText}>&lt;7d</Text><View style={[styles.legendDot, { backgroundColor: '#FFD23F' }]} /><Text style={styles.legendText}>&lt;30d</Text><View style={[styles.legendDot, { backgroundColor: '#3D8BFF' }]} /><Text style={styles.legendText}>older</Text><View style={[styles.legendDot, { backgroundColor: LAUNCH_COLOR }]} /><Text style={styles.legendText}>launch</Text><View style={[styles.legendDot, { backgroundColor: SATELLITE_COLOR }]} /><Text style={styles.legendText}>satellite</Text></View>
       </View>
+      <View style={styles.mapLegend}><View style={[styles.legendDot, { backgroundColor: '#FF4D4F' }]} /><Text style={styles.legendText}>&lt;7d</Text><View style={[styles.legendDot, { backgroundColor: '#FFD23F' }]} /><Text style={styles.legendText}>&lt;30d</Text><View style={[styles.legendDot, { backgroundColor: '#3D8BFF' }]} /><Text style={styles.legendText}>older</Text><View style={[styles.legendDot, { backgroundColor: LAUNCH_COLOR }]} /><Text style={styles.legendText}>launch</Text><View style={[styles.legendDot, { backgroundColor: SATELLITE_COLOR }]} /><Text style={styles.legendText}>satellite</Text><View style={[styles.legendDot, { backgroundColor: '#3DFF9A' }]} /><Text style={styles.legendText}>aurora</Text></View>
       <Text style={styles.mapFootnote}>
         Data: NUFORC via The UAP Atlas (city-level coordinates). Reports are unverified. Showing up to 150 newest markers.
         {issUnavailable ? ' ISS position is temporarily unavailable.' : ' ISS position updates every 10 seconds.'}
         {' '}Launch orbits are estimated from pad location and target orbit type.
         {satellites.length > 0 ? ` ${satellites.length} satellites shown (TLE data, SGP4-propagated, altitude exaggerated).` : ''}
+        {layers.aurora && auroraCells.length > 0 ? ' Aurora: NOAA SWPC OVATION 30-minute forecast (green = likely, purple = very likely).' : ''}
       </Text>
     </Panel>
     {layers.launches && launches.some((launch) => launch.padLatitude != null) ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.launchChips}>
@@ -176,7 +184,7 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
-  mapPanel: { padding: 0, overflow: 'hidden' },
+  mapPanel: { padding: 0, backgroundColor: 'transparent', borderWidth: 0 },
   layerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   layerItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   layerText: { color: colors.text, fontSize: 12, fontWeight: '600' },
@@ -192,11 +200,11 @@ const styles = StyleSheet.create({
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.amber },
   liveText: { color: colors.amber, fontSize: 9, letterSpacing: 1, fontWeight: '700' },
   countText: { color: colors.text, fontSize: 11, fontWeight: '600' },
-  mapArea: { height: 320, backgroundColor: '#08131E', overflow: 'hidden', justifyContent: 'center' },
-  mapLegend: { position: 'absolute', bottom: 13, left: 14, flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#08131E', padding: 8, borderRadius: 9 },
+  mapArea: { justifyContent: 'center' },
+  mapLegend: { marginTop: 14, paddingHorizontal: 14, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 7 },
   legendDot: { width: 6, height: 6, borderRadius: 4, backgroundColor: colors.blue },
   legendText: { color: colors.muted, fontSize: 9 },
-  mapFootnote: { color: colors.faint, fontSize: 9, lineHeight: 14, padding: 13 },
+  mapFootnote: { color: colors.faint, fontSize: 9, lineHeight: 14, padding: 13, textAlign: 'center' },
   selectedCard: { gap: 10 },
   selectedHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   kicker: { color: colors.cyan, fontSize: 9, letterSpacing: 1.2, fontWeight: '700' },
