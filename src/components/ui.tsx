@@ -1,21 +1,49 @@
+import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { SpaceBackdrop } from './SpaceBackdrop';
+import { Panel } from './GlassPanel';
+import { TouchGlowContext } from './TouchGlowContext';
 import { markerColor } from '../services/uapAtlas';
 import type { Sighting } from '../types';
 import { colors, radii } from '../theme';
 
+export { Panel };
+
 export type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
-export function Page({ children, scroll = true, scrollEnabled = true }: PropsWithChildren<{ scroll?: boolean; scrollEnabled?: boolean }>) {
+export function Page({ children, scroll = true, scrollEnabled = true, style }: PropsWithChildren<{ scroll?: boolean; scrollEnabled?: boolean; style?: StyleProp<ViewStyle> }>) {
+  const [touchPoint, setTouchPoint] = useState<{ x: number; y: number } | null>(null);
+  const updateTouchPoint = (event: { nativeEvent: { pageX: number; pageY: number } }) => {
+    setTouchPoint({ x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
+  };
+  const finishTouch = (event: { nativeEvent: { touches: ArrayLike<{ pageX: number; pageY: number }> } }) => {
+    const remainingTouch = event.nativeEvent.touches[0];
+    setTouchPoint(remainingTouch ? { x: remainingTouch.pageX, y: remainingTouch.pageY } : null);
+  };
   const content = scroll ? (
     <ScrollView scrollEnabled={scrollEnabled} contentContainerStyle={styles.pageContent} showsVerticalScrollIndicator={false}>
       {children}
     </ScrollView>
   ) : <View style={styles.pageContent}>{children}</View>;
-  return <SafeAreaView style={styles.safeArea} edges={['top']}>{content}</SafeAreaView>;
+  return <TouchGlowContext.Provider value={{ point: touchPoint, setPoint: setTouchPoint }}>
+    <View
+      style={styles.touchRoot}
+      onTouchStart={updateTouchPoint}
+      onTouchMove={updateTouchPoint}
+      onTouchEnd={finishTouch}
+      onTouchCancel={() => setTouchPoint(null)}
+    >
+      <SafeAreaView style={[styles.safeArea, style]} edges={['top']}>
+        <SpaceBackdrop />
+        {content}
+      </SafeAreaView>
+    </View>
+  </TouchGlowContext.Provider>;
 }
 
 export function PageHeader({ eyebrow, title, subtitle, action }: {
@@ -40,10 +68,6 @@ export function SectionTitle({ title, action, onAction }: { title: string; actio
     <Text style={styles.sectionText}>{title}</Text>
     {action ? <TouchableOpacity onPress={onAction}><Text style={styles.actionText}>{action}</Text></TouchableOpacity> : null}
   </View>;
-}
-
-export function Panel({ children, style }: PropsWithChildren<{ style?: object }>) {
-  return <View style={[styles.panel, style]}>{children}</View>;
 }
 
 export function Badge({ children, tone = 'blue' }: PropsWithChildren<{ tone?: 'blue' | 'green' | 'amber' | 'red' | 'muted' }>) {
@@ -101,7 +125,8 @@ export function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: colors.background },
+  touchRoot: { flex: 1 },
+  safeArea: { flex: 1, backgroundColor: 'transparent' },
   pageContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 28, gap: 20 },
   pageHeader: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   headerCopy: { flex: 1, gap: 5 },
@@ -112,7 +137,6 @@ const styles = StyleSheet.create({
   sectionTitle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: -8 },
   sectionText: { color: colors.text, fontSize: 16, fontWeight: '600', letterSpacing: -0.2 },
   actionText: { color: colors.cyan, fontSize: 12, fontWeight: '600' },
-  panel: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radii.card, padding: 16 },
   badge: { borderWidth: 1, borderRadius: radii.pill, paddingHorizontal: 9, paddingVertical: 5, alignSelf: 'flex-start' },
   badgeText: { fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
   button: { minHeight: 44, paddingHorizontal: 15, borderRadius: 14, backgroundColor: colors.cyan, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },

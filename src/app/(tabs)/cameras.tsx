@@ -64,7 +64,7 @@ export default function CamerasScreen() {
         </Panel>
 
         {/* Information om kameran / rymdstationen under videon */}
-        <View style={styles.infoCard}>
+        <Panel style={styles.infoCard}>
           <View style={styles.titleRow}>
             <Ionicons name="planet-outline" size={18} color={colors.cyan} />
             <Text style={styles.cameraName}>{activeCamera.name}</Text>
@@ -73,7 +73,7 @@ export default function CamerasScreen() {
           <Text style={styles.description}>
             Direktsändning från omloppsana. Följ jordens rotation och soluppgångar i realtid från den internationella rymdstationen.
           </Text>
-        </View>
+        </Panel>
 
       </View>
     </Page>
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    backgroundColor: '#050B14', // Extra djupt rymd-mörker
+    backgroundColor: 'transparent',
   },
   spaceWindowWrapper: {
     flex: 1,
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     padding: 16,
     backgroundColor: 'rgba(20, 42, 58, 0.4)',
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
     gap: 6,

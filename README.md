@@ -21,6 +21,9 @@ Open it with Expo Go or a development build. Use `npm run android` on Android or
 - Search across sightings, stories, missions and events
 - Typed domain models, mock data and a replaceable data-source interface
 - Source/confidence labels and explicit notices that reports are not verification
+- Nebula-and-star page backgrounds, frosted glass panels, and pointer/touch-reactive glow effects
+
+The shared page and panel components apply the visual treatment across screens. On web, CSS supplies the layered star field, glass blur, edge mask and pointer-following glow; on iOS and Android, native gradients and touch-responsive panels provide the equivalent treatment.
 
 ## Replace mock data with APIs
 
