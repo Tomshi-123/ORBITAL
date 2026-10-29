@@ -1,4 +1,4 @@
-import type { Article, CameraSource, CelestialEvent, Launch, Sighting } from './types';
+import type { Article, CelestialEvent, Launch, Sighting } from './types';
 
 const sightingSeeds = [
   ['Phoenix, Arizona', 'United States', 33.45, -112.07, 'Unknown aerial lights moving silently across the horizon.', 'Light formation', '3 min', 2, 'Medium', 'Public report archive', 'North-east'],
@@ -90,7 +90,3 @@ export const celestialEvents: CelestialEvent[] = eventNames.map(([name, kind, de
   date: new Date(Date.now() + (index + 1) * 2.2 * 86_400_000).toISOString(),
   visibility: index % 2 === 0 ? 'Northern Europe' : 'Global, weather permitting',
 }));
-
-export const cameras: CameraSource[] = [
-  { id: 'cam-01', name: 'Earth from orbit', category: 'Earth', location: 'Low Earth orbit', source: '4QJEibrt9B8', available: true },
-];

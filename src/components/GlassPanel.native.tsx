@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from 'react';
-import type { PropsWithChildren } from 'react';
+import type { ComponentRef, PropsWithChildren } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import Svg, { Defs, Path, RadialGradient, Stop } from 'react-native-svg';
@@ -10,7 +10,7 @@ type Glow = { x: number; y: number; opacity: number };
 
 export function Panel({ children, style }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
   const { point } = useContext(TouchGlowContext);
-  const panelRef = useRef<View>(null);
+  const panelRef = useRef<ComponentRef<typeof View>>(null);
   const [frame, setFrame] = useState<Frame | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
 

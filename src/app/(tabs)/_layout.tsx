@@ -5,7 +5,7 @@ import { colors } from '../../theme';
 const tabIcons = {
   index: 'grid-outline',
   map: 'globe-outline',
-  cameras: 'videocam-outline',
+  missions: 'rocket-outline',
 } as const;
 
 export default function TabLayout() {
@@ -21,10 +21,10 @@ export default function TabLayout() {
       borderTopColor: colors.border,
     },
     tabBarLabelStyle: { fontSize: 9, fontWeight: '600' },
-    tabBarIcon: ({ color, size }) => <Ionicons name={tabIcons[route.name as keyof typeof tabIcons]} size={size} color={color} />,
+    tabBarIcon: ({ color, size }) => <Ionicons name={tabIcons[route.name as keyof typeof tabIcons]} size={size} color={color as string} />,
   })}>
     <Tabs.Screen name="index" options={{ title: 'Overview' }} />
     <Tabs.Screen name="map" options={{ title: 'Live map' }} />
-    <Tabs.Screen name="cameras" options={{ title: 'Live cam' }} />
+    <Tabs.Screen name="missions" options={{ title: 'Active Missions' }} />
   </Tabs>;
 }

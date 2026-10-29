@@ -17,7 +17,7 @@ Open it with Expo Go or a development build. Use `npm run android` on Android or
 - Overview dashboard, sample observation map, report list and report details
 - Space and UAP news views with separate categories
 - Launch schedule and live local countdowns
-- Manual sky-view preview, camera source placeholders and celestial-event list
+- Manual sky-view preview, celestial-event list, and an Active Missions dashboard (crews, spacecraft, stations from Open Notify and Launch Library 2) with a NASA ISS live stream
 - Search across sightings, stories, missions and events
 - Typed domain models, mock data and a replaceable data-source interface
 - Source/confidence labels and explicit notices that reports are not verification
@@ -33,7 +33,7 @@ The screen-facing adapter is `src/services/index.ts`. Implement `OrbitalDataSour
 
 ## Follow-up integrations
 
-- Connect real sightings, news, launch, astronomy and camera providers in the service layer.
+- Connect real sightings, news, launch and astronomy providers in the service layer.
 - Add loading, error, retry and cache states around provider requests.
 - Add location, camera, compass and orientation permissions before using device sensors.
 - Replace the schematic map preview with a geographic map and the globe illustration with a native-compatible 3D globe.

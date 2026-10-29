@@ -50,12 +50,3 @@ export type CelestialEvent = {
   visibility: string;
   description: string;
 };
-
-export type CameraSource = {
-  id: string;
-  name: string;
-  category: string;
-  location: string;
-  source: string;
-  available: boolean;
-};
