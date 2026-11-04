@@ -1,6 +1,7 @@
 import type { Launch } from '../types';
 
 const LAUNCHES_API_URL = 'https://ll.thespacedevs.com/2.3.0/launches/upcoming/?limit=20';
+const CACHE_MS = 5 * 60 * 1000;
 
 type SpaceDevsStatus = {
   id?: number;
@@ -83,7 +84,7 @@ export function toLaunch(item: SpaceDevsLaunchItem): Launch {
   const rocket = item.rocket?.configuration?.name || 'Launch Vehicle';
   const provider = item.launch_service_provider?.name || 'Space Agency';
   const location = item.pad?.location?.name || item.pad?.name || 'Unknown Pad';
-  const launchAt = item.net || item.window_start || new Date().toISOString();
+  const launchAt = item.net || item.window_start || null;
   const missionType = item.mission?.type || 'Spaceflight';
   const status = mapLaunchStatus(item.status);
 
@@ -104,11 +105,13 @@ export function toLaunch(item: SpaceDevsLaunchItem): Launch {
   };
 }
 
-let cache: Promise<Launch[]> | null = null;
+let cache: { at: number; items: Launch[] } | null = null;
+let inflight: Promise<Launch[]> | null = null;
 
 export function getUpcomingLaunches(): Promise<Launch[]> {
-  if (!cache) {
-    cache = (async () => {
+  if (cache && Date.now() - cache.at < CACHE_MS) return Promise.resolve(cache.items);
+  if (!inflight) {
+    inflight = (async () => {
       const response = await fetch(LAUNCHES_API_URL);
       if (!response.ok) {
         throw new Error(`The Space Devs request failed: ${response.status}`);
@@ -118,11 +121,10 @@ export function getUpcomingLaunches(): Promise<Launch[]> {
         throw new Error('Unexpected response format from The Space Devs');
       }
 
-      return data.results.map(toLaunch);
-    })().catch((error) => {
-      cache = null;
-      throw error;
-    });
+      const items = data.results.map(toLaunch);
+      cache = { at: Date.now(), items };
+      return items;
+    })().finally(() => { inflight = null; });
   }
-  return cache;
+  return inflight;
 }

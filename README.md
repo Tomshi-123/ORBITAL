@@ -1,6 +1,6 @@
 # ORBITAL
 
-An Expo / React Native mobile foundation for a space and astronomy observatory app. The UI runs from local sample data; no API keys, backend, or live feeds are required to start it.
+An Expo / React Native space and astronomy app that uses public data providers and local astronomical calculations.
 
 ## Run the app
 
@@ -14,29 +14,26 @@ Open it with Expo Go or a development build. Use `npm run android` on Android or
 ## What's included
 
 - Expo Router navigation with mobile bottom tabs and secondary screens
-- Overview dashboard, sample observation map, report list and report details
-- Space and UAP news views with separate categories
-- Launch schedule and live local countdowns
-- Manual sky-view preview, celestial-event list, and an Active Missions dashboard (crews, spacecraft, stations from Open Notify and Launch Library 2) with a NASA ISS live stream
-- Search across sightings, stories, missions and events
-- Typed domain models, mock data and a replaceable data-source interface
-- Source/confidence labels and explicit notices that reports are not verification
+- Spaceflight news and launch schedules
+- Live satellite, ISS and aurora map layers, plus near-Earth-object close-approach data
+- Location-aware sky positions and computed celestial events
+- Active Missions dashboard (crews, spacecraft and stations from Launch Library 2) with an ISS live stream
+- Search across launches and sky events
+- Typed domain models and a replaceable data-source interface
 - Nebula-and-star page backgrounds, frosted glass panels, and pointer/touch-reactive glow effects
 
 The shared page and panel components apply the visual treatment across screens. On web, CSS supplies the layered star field, glass blur, edge mask and pointer-following glow; on iOS and Android, native gradients and touch-responsive panels provide the equivalent treatment.
 
-## Replace mock data with APIs
+## Data sources and limitations
 
-The screen-facing adapter is `src/services/index.ts`. Implement `OrbitalDataSource` with your API clients and assign that implementation to `dataSource`; screens already consume the interface. Keep credentials in an appropriate server-side environment rather than shipping private API keys in the mobile app.
+- Spaceflight news: Spaceflight News API.
+- Launches: The Space Devs Launch Library.
+- Mission control: Launch Library 2.
+- ISS position: Where The ISS At; satellite tracks: public TLE data propagated locally; aurora forecast: NOAA SWPC; near-Earth objects: NASA NeoWs.
+- Sky view and celestial-event times are calculated locally with Astronomy Engine ephemerides. Local solar-eclipse visibility uses the device location. Cloud cover, light pollution, obstructions and naked-eye visibility are not forecast.
 
-`src/mock-data.ts` deliberately uses sample records, relative dates and clearly labelled placeholder sources. Replace those records and labels before presenting live data.
+The app requests foreground location permission only for local sky calculations. Coordinates are used on-device and are not sent to an astronomy provider. Provider APIs are called directly by the app, so network availability, provider changes and rate limits can affect live data. Failed requests are shown as unavailable rather than replaced with sample records.
 
-## Follow-up integrations
+The map’s launch ground tracks are estimates derived from launch site and target orbit information, not precise mission trajectories. Satellite positions are predictions based on the latest available TLEs.
 
-- Connect real sightings, news, launch and astronomy providers in the service layer.
-- Add loading, error, retry and cache states around provider requests.
-- Add location, camera, compass and orientation permissions before using device sensors.
-- Replace the schematic map preview with a geographic map and the globe illustration with a native-compatible 3D globe.
-- Connect push notifications and a backend before presenting alert preferences as active.
-
-These are intentionally represented as previews/placeholders rather than fake API or live-stream integrations.
+The screen-facing adapter is `src/services/index.ts`. Keep any future private API credentials in an appropriate server-side environment rather than shipping them in the mobile app.

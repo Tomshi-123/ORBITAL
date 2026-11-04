@@ -1,21 +1,3 @@
-export type Confidence = 'High' | 'Medium' | 'Low' | 'Unverified';
-
-export type Sighting = {
-  id: string;
-  latitude: number;
-  longitude: number;
-  timestamp: string;
-  location: string;
-  country: string;
-  description: string;
-  objectType: string;
-  duration: string;
-  witnesses: number;
-  confidence: Confidence;
-  source: string;
-  direction: string;
-};
-
 export type Article = {
   id: string;
   headline: string;
@@ -23,7 +5,7 @@ export type Article = {
   category: string;
   summary: string;
   publishedAt: string;
-  kind: 'space' | 'uap';
+  kind: 'space';
 };
 
 export type Launch = {
@@ -32,7 +14,7 @@ export type Launch = {
   rocket: string;
   provider: string;
   location: string;
-  launchAt: string;
+  launchAt: string | null;
   missionType: string;
   status: 'Scheduled' | 'Delayed' | 'Scrubbed' | 'Launched' | 'Completed';
   padLatitude?: number;

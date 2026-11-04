@@ -4,12 +4,9 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import type { StyleProp, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { SpaceBackdrop } from './SpaceBackdrop';
 import { Panel } from './GlassPanel';
 import { TouchGlowContext } from './TouchGlowContext';
-import { markerColor } from '../services/uapAtlas';
-import type { Sighting } from '../types';
 import { colors, radii } from '../theme';
 
 export { Panel };
@@ -97,21 +94,6 @@ export function StatCard({ label, value, caption, icon }: { label: string; value
   </Panel>;
 }
 
-export function SightingRow({ sighting, compact = false }: { sighting: Sighting; compact?: boolean }) {
-  const tone = sighting.confidence === 'High' ? 'green' : sighting.confidence === 'Medium' ? 'amber' : 'muted';
-  return <TouchableOpacity style={styles.sightingRow} activeOpacity={0.75} onPress={() => router.push(`/sighting/${sighting.id}`)}>
-    <View style={[styles.sightingDot, { backgroundColor: markerColor(sighting.timestamp) }]} />
-    <View style={styles.sightingCopy}>
-      <Text style={styles.rowTitle} numberOfLines={1}>{sighting.location}</Text>
-      <Text style={styles.rowMeta} numberOfLines={1}>{sighting.objectType}</Text>
-    </View>
-    <View style={styles.rowRight}>
-      <Badge tone={tone}>{sighting.confidence}</Badge>
-      <Text style={styles.timeText}>{new Date(sighting.timestamp).toLocaleDateString()}</Text>
-    </View>
-  </TouchableOpacity>;
-}
-
 export function FilterChips({ items, selected, onSelect }: { items: string[]; selected: string; onSelect: (item: string) => void }) {
   return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
     {items.map((item) => <TouchableOpacity key={item} onPress={() => onSelect(item)} style={[styles.chip, item === selected && styles.chipSelected]}>
@@ -148,13 +130,6 @@ const styles = StyleSheet.create({
   statLabel: { color: colors.muted, fontSize: 11, fontWeight: '500' },
   statValue: { color: colors.text, fontSize: 24, lineHeight: 28, fontWeight: '700' },
   statCaption: { color: colors.faint, fontSize: 10 },
-  sightingRow: { minHeight: 66, borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center', gap: 11 },
-  sightingDot: { width: 8, height: 8, borderRadius: 5, backgroundColor: colors.cyan },
-  sightingCopy: { flex: 1, gap: 5 },
-  rowTitle: { color: colors.text, fontSize: 13, fontWeight: '600' },
-  rowMeta: { color: colors.muted, fontSize: 10 },
-  rowRight: { alignItems: 'flex-end', gap: 5 },
-  timeText: { color: colors.faint, fontSize: 9 },
   chips: { gap: 8, paddingVertical: 2 },
   chip: { paddingHorizontal: 14, paddingVertical: 9, backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radii.pill },
   chipSelected: { backgroundColor: '#173344', borderColor: '#2B637A' },

@@ -6,6 +6,7 @@ const PAGE_SIZE = 100;
 const PAGES = 5;
 // The API rejects bursts of parallel requests, so pages are fetched one at a time.
 const RETRY_DELAY_MS = 1_500;
+const CACHE_MS = 60 * 60 * 1000;
 
 export type SatelliteTrack = { id: string; name: string; satrec: SatRec };
 export type SatellitePosition = { id: string; name: string; latitude: number; longitude: number; altitudeKm: number };
@@ -34,11 +35,16 @@ async function fetchPage(page: number, attempt = 0): Promise<SatelliteTrack[]> {
   });
 }
 
-let cache: Promise<SatelliteTrack[]> | null = null;
+let cache: { at: number; tracks: SatelliteTrack[] } | null = null;
+let inflight: Promise<SatelliteTrack[]> | null = null;
 
 export function getSatelliteTracks(onProgress?: (tracks: SatelliteTrack[]) => void): Promise<SatelliteTrack[]> {
-  if (!cache) {
-    cache = (async () => {
+  if (cache && Date.now() - cache.at < CACHE_MS) {
+    onProgress?.(cache.tracks);
+    return Promise.resolve(cache.tracks);
+  }
+  if (!inflight) {
+    inflight = (async () => {
       const tracks: SatelliteTrack[] = [];
       for (let page = 1; page <= PAGES; page += 1) {
         try {
@@ -49,13 +55,11 @@ export function getSatelliteTracks(onProgress?: (tracks: SatelliteTrack[]) => vo
         }
       }
       if (tracks.length === 0) throw new Error('No satellite data could be loaded');
+      cache = { at: Date.now(), tracks };
       return tracks;
-    })().catch((error) => {
-      cache = null;
-      throw error;
-    });
+    })().finally(() => { inflight = null; });
   }
-  return cache;
+  return inflight;
 }
 
 export function propagateSatellites(tracks: SatelliteTrack[], date = new Date()): SatellitePosition[] {

@@ -1,13 +1,11 @@
-const ASTROS_URL = 'http://api.open-notify.org/astros.json';
 const LL2_URL = 'https://ll.thespacedevs.com/2.2.0';
 const ASTRONAUTS_URL = `${LL2_URL}/astronaut/?in_space=true&mode=detailed&limit=50`;
 const EXPEDITIONS_URL = `${LL2_URL}/expedition/?mode=detailed&ordering=-start&limit=20`;
 const STATIONS_URL = `${LL2_URL}/spacestation/?limit=50`;
 const SPACECRAFT_URL = `${LL2_URL}/spacecraft/?in_space=true&mode=detailed&limit=50`;
 
-export const REFRESH_MS = 5 * 60 * 1000;
+export const REFRESH_MS = 20 * 60 * 1000;
 // Launch Library's free tier allows only ~15 requests/hour, so its endpoints are cached longer than the refresh interval.
-const ASTROS_TTL_MS = 4 * 60 * 1000;
 const LL2_TTL_MS = 20 * 60 * 1000;
 
 export type CrewMember = { id: number; name: string; role: string };
@@ -79,7 +77,7 @@ type Entry = { at: number; data: unknown };
 const cache = new Map<string, Entry>();
 const inflight = new Map<string, Promise<unknown>>();
 
-// Serves fresh cache, de-duplicates concurrent calls, and falls back to stale data when a request fails (e.g. rate limiting).
+// Serves fresh cache and de-duplicates concurrent calls.
 function cachedFetch<T>(url: string, ttl: number, parse: (json: any) => T): Promise<T> {
   const hit = cache.get(url);
   if (hit && Date.now() - hit.at < ttl) return Promise.resolve(hit.data as T);
@@ -94,7 +92,6 @@ function cachedFetch<T>(url: string, ttl: number, parse: (json: any) => T): Prom
       cache.set(url, { at: Date.now(), data });
       return data;
     } catch (error) {
-      if (hit) return hit.data as T;
       throw error;
     } finally {
       inflight.delete(url);
@@ -125,18 +122,8 @@ function currentFlight(craft: RawSpacecraft) {
   }, null);
 }
 
-function loadPeople(): Promise<PeopleInSpace> {
-  return cachedFetch(ASTROS_URL, ASTROS_TTL_MS, (json) => {
-    if (!Array.isArray(json?.people) || typeof json.number !== 'number') throw new Error('Unexpected response format from Open Notify');
-    const byCraft: Record<string, number> = {};
-    for (const person of json.people as { craft: string }[]) byCraft[person.craft] = (byCraft[person.craft] ?? 0) + 1;
-    return { total: json.number, byCraft };
-  });
-}
-
 export async function getMissionControl(): Promise<MissionControlData> {
-  const [peopleResult, astronautsResult, expeditionsResult, stationsResult, spacecraftResult] = await Promise.allSettled([
-    loadPeople(),
+  const [astronautsResult, expeditionsResult, stationsResult, spacecraftResult] = await Promise.allSettled([
     cachedFetch(ASTRONAUTS_URL, LL2_TTL_MS, results<RawAstronaut>),
     cachedFetch(EXPEDITIONS_URL, LL2_TTL_MS, results<RawExpedition>),
     cachedFetch(STATIONS_URL, LL2_TTL_MS, results<RawStation>),
@@ -170,12 +157,19 @@ export async function getMissionControl(): Promise<MissionControlData> {
     if (launchId) craftByLaunch.set(launchId, craft.name);
   });
   const craftByAstronaut = new Map<number, string[]>();
+  const peopleByCraft: Record<string, number> = {};
   if (astronautsResult.status === 'fulfilled') {
     astronautsResult.value.forEach((astronaut) => {
-      const names = (astronaut.flights ?? []).flatMap((flight) => craftByLaunch.get(flight.id ?? '') ?? []);
+      const names = [...new Set((astronaut.flights ?? []).flatMap((flight) => craftByLaunch.get(flight.id ?? '') ?? []))];
       craftByAstronaut.set(astronaut.id, names);
+      names.forEach((name) => { peopleByCraft[name] = (peopleByCraft[name] ?? 0) + 1; });
     });
+  } else {
+    errors.people = reason(astronautsResult);
   }
+  const people: PeopleInSpace | null = astronautsResult.status === 'fulfilled'
+    ? { total: astronautsResult.value.length, byCraft: peopleByCraft }
+    : null;
 
   const activeExpeditions = expeditionsResult.status === 'fulfilled'
     ? expeditionsResult.value.filter((expedition) => !expedition.end || Date.parse(expedition.end) > Date.now())
@@ -217,13 +211,6 @@ export async function getMissionControl(): Promise<MissionControlData> {
       })
     : null;
   if (stationsResult.status === 'rejected') errors.stations = reason(stationsResult);
-
-  let people: PeopleInSpace | null = peopleResult.status === 'fulfilled' ? peopleResult.value : null;
-  if (!people && missions) {
-    // Open Notify is down; derive the headcount from the current expeditions instead.
-    people = { total: missions.reduce((sum, mission) => sum + mission.crewCount, 0), byCraft: {} };
-  }
-  if (!people && peopleResult.status === 'rejected') errors.people = reason(peopleResult);
 
   return { people, missions, spacecraft, stations, errors, updatedAt: Date.now() };
 }

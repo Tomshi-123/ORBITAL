@@ -48,11 +48,7 @@ export function getAuroraForecast(): Promise<AuroraForecast> {
       const data = { cells: toAuroraCells(json.coordinates), forecastTime: json['Forecast Time'] };
       cache = { at: Date.now(), data };
       return data;
-    })().catch((error) => {
-      // Fall back to the last good forecast rather than dropping the layer.
-      if (cache) return cache.data;
-      throw error;
-    }).finally(() => { inflight = null; });
+    })().finally(() => { inflight = null; });
   }
   return inflight;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ImageBackground, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ImageBackground, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -88,16 +88,30 @@ function StoryCard({ article, featured = false, rowSize = 2 }: {
 
 export default function OverviewScreen() {
   const [news, setNews] = useState<SpaceNewsArticle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setError(null);
     getSpaceNews()
       .then((articles) => { if (active) setNews(articles); })
-      .catch((error) => console.error('Failed to load space news', error));
+      .catch((loadError: unknown) => {
+        console.error('Failed to load space news', loadError);
+        if (active) {
+          setNews([]);
+          setError(loadError instanceof Error ? loadError.message : 'Space news is temporarily unavailable.');
+        }
+      })
+      .finally(() => { if (active) setLoading(false); });
+    const timer = setInterval(() => setRefresh((value) => value + 1), 15 * 60_000);
     return () => {
       active = false;
+      clearInterval(timer);
     };
-  }, []);
+  }, [refresh]);
 
   const featuredArticle = news[0];
   const rows = newsRows(news.slice(1));
@@ -109,13 +123,26 @@ export default function OverviewScreen() {
       subtitle="The latest from beyond our atmosphere."
       action={{ icon: 'search-outline', onPress: () => router.push('/search') }}
     />
+    {loading && !featuredArticle ? <Panel style={styles.newsState}>
+      <ActivityIndicator color={colors.cyan} />
+      <Text style={styles.newsStateText}>Loading current space news…</Text>
+    </Panel> : null}
+    {error && !featuredArticle ? <Panel style={styles.newsState}>
+      <Text style={styles.newsStateText}>{error}</Text>
+      <TouchableOpacity onPress={() => setRefresh((value) => value + 1)} accessibilityRole="button">
+        <Text style={styles.retryText}>RETRY</Text>
+      </TouchableOpacity>
+    </Panel> : null}
+    {!loading && !error && !featuredArticle ? <Panel style={styles.newsState}>
+      <Text style={styles.newsStateText}>No articles are currently available from the news provider.</Text>
+    </Panel> : null}
     {featuredArticle ? <StoryCard article={featuredArticle} featured /> : null}
     {rows.map((row, rowIndex) => (
       <View key={`news-row-${rowIndex}`} style={styles.newsRow}>
         {row.map((article) => <StoryCard key={article.id} article={article} rowSize={row.length} />)}
       </View>
     ))}
-    <Text style={styles.disclaimer}>Spaceflight news · Tap a story to read it without leaving ORBITAL.</Text>
+    <Text style={styles.disclaimer}>Spaceflight News API · Tap a story to read it without leaving ORBITAL.</Text>
   </Page>;
 }
 
@@ -143,4 +170,7 @@ const styles = StyleSheet.create({
   storyTime: { color: 'rgba(233, 243, 255, 0.7)', fontSize: 8, fontWeight: '600' },
   newsRow: { flexDirection: 'row', gap: 9 },
   disclaimer: { color: colors.faint, fontSize: 9, lineHeight: 14, textAlign: 'center', paddingHorizontal: 12 },
+  newsState: { minHeight: 100, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 18 },
+  newsStateText: { color: colors.muted, fontSize: 11, lineHeight: 16, textAlign: 'center' },
+  retryText: { color: colors.cyan, fontSize: 11, fontWeight: '700', letterSpacing: 1 },
 });

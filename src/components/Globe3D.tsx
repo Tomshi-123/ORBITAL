@@ -3,8 +3,6 @@ import { PanResponder, Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Defs, Path, RadialGradient, Stop, Text as SvgText } from 'react-native-svg';
 import { colors } from '../theme';
 
-import { asteroidPlanePosition, type Asteroid } from '../services/asteroids';
-
 type LonLat = [number, number];
 
 const rad = (deg: number) => (deg * Math.PI) / 180;
@@ -13,31 +11,38 @@ export type GlobeMarker = { id: string; latitude: number; longitude: number; col
 
 export type GlobePath = { id: string; points: LonLat[]; color: string; highlighted?: boolean };
 
+// A body out in space: position plus distance from Earth's centre in Earth radii, with an optional path.
+export type GlobeSpaceBody = {
+  id: string;
+  label: string;
+  color: string;
+  longitude: number;
+  latitude: number;
+  distance: number;
+  path?: { longitude: number; latitude: number; distance: number }[];
+};
+
 type Props = {
   markers: GlobeMarker[];
   aurora?: { latitude: number; longitude: number; intensity: 0 | 1 | 2 }[];
   paths?: GlobePath[];
   orbiters?: { latitude: number; longitude: number }[];
   orbiterColor?: string;
+  spaceBodies?: GlobeSpaceBody[];
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   onInteractionChange?: (active: boolean) => void;
   focusMarkerId?: string;
   size?: number;
   zoomable?: boolean;
-  showMoon?: boolean;
-  asteroids?: Asteroid[];
 };
 
 const MIN_ZOOM = 0.05;
 const MAX_ZOOM = 1;
 const DEFAULT_ZOOM = 0.55;
-const MOON_ANGLE = rad(35);
-
-// Stylised space scale: distances in lunar distances are compressed logarithmically so the Moon and nearby asteroids fit in view.
-function spaceRadius(ld: number) {
-  return 1.2 + 1.1 * Math.log(1 + ld);
-}
+const ZOOM_STEP = 1.7;
+// Below this globe radius (px) the surface detail is too small to be useful and is hidden.
+const SURFACE_MIN_RADIUS = 6;
 
 const LAND: LonLat[][] = [
   [[-168, 66], [-140, 70], [-95, 72], [-80, 73], [-62, 60], [-55, 50], [-67, 44], [-76, 35], [-81, 25], [-90, 30], [-97, 26], [-97, 21], [-87, 21], [-88, 16], [-83, 10], [-77, 8], [-86, 12], [-95, 16], [-105, 20], [-110, 24], [-117, 32], [-124, 40], [-125, 49], [-135, 58], [-152, 59], [-165, 55]],
@@ -71,7 +76,7 @@ function project(lon: number, lat: number, lon0: number, lat0: number) {
   };
 }
 
-export function Globe3D({ markers, aurora = [], paths = [], orbiters = [], orbiterColor = '#B6FF3B', selectedId, onSelect, onInteractionChange, focusMarkerId, size = 300, zoomable = false, showMoon = false, asteroids = [] }: Props) {
+export function Globe3D({ markers, aurora = [], paths = [], orbiters = [], orbiterColor = '#B6FF3B', spaceBodies = [], selectedId, onSelect, onInteractionChange, focusMarkerId, size = 300, zoomable = false }: Props) {
   const [rotation, setRotation] = useState({ lon: 10, lat: 20 });
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const hasFocusedMarker = useRef(false);
@@ -90,23 +95,47 @@ export function Globe3D({ markers, aurora = [], paths = [], orbiters = [], orbit
     }
   }, [focusMarkerId, markers]);
 
-  const r = (size / 2 - 16) * (zoomable ? zoom : 1);
+  const baseRadius = size / 2 - 16;
+  const r = baseRadius * (zoomable ? zoom : 1);
   const c = size / 2;
+  // Zoom at which a body at the given distance (Earth radii) just fits inside the view.
+  const fitZoom = (distance: number) => (size / 2 - 8) / (distance * baseRadius);
+  // Include every point of each body's path so the whole orbit can be zoomed into view.
+  const farthest = spaceBodies.reduce((max, body) => Math.max(max, body.distance, ...(body.path ?? []).map((point) => point.distance)), 0);
+  const minZoom = farthest > 0 ? Math.min(MIN_ZOOM, fitZoom(farthest * 1.1)) : MIN_ZOOM;
+  const clampZoom = (value: number) => Math.max(minZoom, Math.min(MAX_ZOOM, value));
+  const live = useRef({ r, minZoom });
+  live.current = { r, minZoom };
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const pinch = useRef<{ distance: number; zoom: number } | null>(null);
 
   const pan = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) + Math.abs(g.dy) > 4,
+    onMoveShouldSetPanResponderCapture: (e, g) => e.nativeEvent.touches.length >= 2 || Math.abs(g.dx) + Math.abs(g.dy) > 4,
     onPanResponderGrant: () => { start.current = current.current; callbacks.current.onInteractionChange?.(true); },
-    onPanResponderMove: (_, g) => {
-      const k = 90 / r;
+    onPanResponderMove: (e, g) => {
+      const touches = e.nativeEvent.touches;
+      if (touches.length >= 2) {
+        const distance = Math.hypot(touches[0].pageX - touches[1].pageX, touches[0].pageY - touches[1].pageY);
+        if (!pinch.current) pinch.current = { distance: Math.max(distance, 1), zoom: zoomRef.current };
+        setZoom(Math.max(live.current.minZoom, Math.min(MAX_ZOOM, pinch.current.zoom * (distance / pinch.current.distance))));
+        return;
+      }
+      if (pinch.current) {
+        // Back to one finger: continue panning from the current position instead of jumping.
+        pinch.current = null;
+        start.current = { lon: current.current.lon + g.dx * (90 / Math.max(live.current.r, 60)), lat: current.current.lat - g.dy * (90 / Math.max(live.current.r, 60)) };
+      }
+      const k = 90 / Math.max(live.current.r, 60);
       setRotation({
         lon: start.current.lon - g.dx * k,
         lat: Math.max(-80, Math.min(80, start.current.lat + g.dy * k)),
       });
     },
-    onPanResponderRelease: () => callbacks.current.onInteractionChange?.(false),
-    onPanResponderTerminate: () => callbacks.current.onInteractionChange?.(false),
+    onPanResponderRelease: () => { pinch.current = null; callbacks.current.onInteractionChange?.(false); },
+    onPanResponderTerminate: () => { pinch.current = null; callbacks.current.onInteractionChange?.(false); },
     onPanResponderTerminationRequest: () => false,
-  }), [r]);
+  }), []);
 
   const { lon, lat } = rotation;
 
@@ -169,68 +198,54 @@ export function Globe3D({ markers, aurora = [], paths = [], orbiters = [], orbit
     return { ...path, d };
   }).filter((path) => path.d);
 
-  const toScene = (xLd: number, yLd: number) => {
-    const rho = Math.hypot(xLd, yLd) || 1e-6;
-    const k = (spaceRadius(rho) * r) / rho;
-    return { x: c + xLd * k, y: c - yLd * k };
-  };
-  const inView = (x: number, y: number, pad = 0) => x >= pad && x <= size - pad && y >= pad && y <= size - pad;
+  const showSurface = r >= SURFACE_MIN_RADIUS;
 
-  const moon = useMemo(() => {
-    if (!zoomable || !showMoon) return null;
-    const mr = Math.max(4, r * 0.273);
-    const p = toScene(Math.cos(MOON_ANGLE), Math.sin(MOON_ANGLE));
-    if (!inView(p.x, p.y, mr)) return null;
-    return { mr, x: p.x, y: p.y };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zoomable, showMoon, r, size]);
-
-  const asteroidShapes = !zoomable ? [] : asteroids.map((a) => {
-    const now = Date.now();
-    const trackPoints: string[] = [];
-    for (let i = -20; i <= 20; i += 1) {
-      const offset = Math.sign(i) * (i / 20) ** 2 * 60;
-      const q = asteroidPlanePosition(a, a.approachMs, offset);
-      const s = toScene(q.x, q.y);
-      trackPoints.push(`${trackPoints.length ? 'L' : 'M'}${s.x.toFixed(1)} ${s.y.toFixed(1)}`);
-    }
-    const q = asteroidPlanePosition(a, now);
-    const dot = toScene(q.x, q.y);
-    return { a, d: trackPoints.join(' '), dot, visible: inView(dot.x, dot.y, 3) };
+  // Space bodies are placed at their real distance from Earth's centre, and hidden while behind the Earth disc.
+  const spaceView = spaceBodies.map((body) => {
+    const place = (point: { longitude: number; latitude: number; distance: number }) => {
+      const p = project(point.longitude, point.latitude, lon, lat);
+      const hidden = p.z < 0 && Math.hypot(p.x, p.y) * point.distance <= 1;
+      return { x: c + p.x * r * point.distance, y: c - p.y * r * point.distance, hidden };
+    };
+    let d = '';
+    let pen = false;
+    (body.path ?? []).forEach((point) => {
+      const q = place(point);
+      if (q.hidden) { pen = false; return; }
+      d += `${pen ? 'L' : 'M'}${q.x.toFixed(1)} ${q.y.toFixed(1)} `;
+      pen = true;
+    });
+    return { body, d, position: place(body) };
   });
 
-  const zoomBy = (factor: number) => setZoom((z) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z * factor)));
+  const zoomBy = (factor: number) => setZoom((z) => clampZoom(z * factor));
+  const moonBody = spaceBodies.find((body) => body.id === 'moon');
+  const asteroidBodies = spaceBodies.filter((body) => body.id.startsWith('asteroid:'));
+  const presets = [
+    { label: 'Earth', zoom: DEFAULT_ZOOM },
+    ...(moonBody ? [{ label: 'Moon', zoom: fitZoom(moonBody.distance * 1.15) }] : []),
+    ...(asteroidBodies.length > 0 ? [{ label: 'Asteroids', zoom: fitZoom(Math.max(...asteroidBodies.flatMap((body) => [body.distance, ...(body.path ?? []).map((point) => point.distance)])) * 1.1) }] : []),
+  ];
 
   return (
     <View {...pan.panHandlers} style={{ width: size, height: size, alignSelf: 'center' }}>
       <Svg width={size} height={size}>
         <Defs>
-          <RadialGradient id="moon" cx="35%" cy="30%" r="80%">
-            <Stop offset="0" stopColor="#E4E7EA" />
-            <Stop offset="1" stopColor="#6E7780" />
-          </RadialGradient>
           <RadialGradient id="ocean" cx="40%" cy="35%" r="75%">
             <Stop offset="0" stopColor="#14354A" />
             <Stop offset="1" stopColor="#06101A" />
           </RadialGradient>
         </Defs>
-        {moon ? (
-          <>
-            <Circle cx={c} cy={c} r={spaceRadius(1) * r} stroke="#5B6770" strokeWidth={0.6} strokeDasharray="2 4" fill="none" opacity={0.6} />
-            <Circle cx={moon.x} cy={moon.y} r={moon.mr} fill="url(#moon)" />
-            <SvgText x={moon.x} y={Math.min(size - 2, moon.y + moon.mr + 10)} fill="#AEB7BF" fontSize={9} fontWeight="700" textAnchor="middle">Moon</SvgText>
-          </>
-        ) : null}
-        {asteroidShapes.map(({ a, d }) => (
-          <Path key={`a${a.id}`} d={d} stroke={a.hazardous ? '#FF4D4F' : '#FF8A8A'} strokeWidth={1} strokeDasharray="3 3" opacity={0.6} fill="none" />
-        ))}
-        <Circle cx={c} cy={c} r={r} fill="url(#ocean)" stroke="#2D6984" strokeWidth={1} />
-        {landPaths.map((d, i) => <Path key={i} d={d} fill="#1B3A4A" stroke="#2F5A70" strokeWidth={0.8} />)}
-        {grid.map((d, i) => <Path key={`g${i}`} d={d} stroke="#1E4258" strokeWidth={0.5} fill="none" opacity={0.7} />)}
-        {auroraPaths[0] ? <Path d={auroraPaths[0]} stroke="#3DFF9A" strokeWidth={6} strokeLinecap="round" fill="none" opacity={0.3} /> : null}
-        {auroraPaths[1] ? <Path d={auroraPaths[1]} stroke="#3DFF9A" strokeWidth={6} strokeLinecap="round" fill="none" opacity={0.55} /> : null}
-        {auroraPaths[2] ? <Path d={auroraPaths[2]} stroke="#C86BFF" strokeWidth={6} strokeLinecap="round" fill="none" opacity={0.75} /> : null}
-        {orbitPaths.map((path) => (
+        {spaceView.map(({ body, d }) => d ? (
+          <Path key={`sp${body.id}`} d={d} stroke={body.color} strokeWidth={1} strokeDasharray="4 3" opacity={0.6} fill="none" />
+        ) : null)}
+        <Circle cx={c} cy={c} r={Math.max(r, 2)} fill="url(#ocean)" stroke="#2D6984" strokeWidth={1} />
+        {showSurface ? landPaths.map((d, i) => <Path key={i} d={d} fill="#1B3A4A" stroke="#2F5A70" strokeWidth={0.8} />) : null}
+        {showSurface ? grid.map((d, i) => <Path key={`g${i}`} d={d} stroke="#1E4258" strokeWidth={0.5} fill="none" opacity={0.7} />) : null}
+        {showSurface && auroraPaths[0] ? <Path d={auroraPaths[0]} stroke="#3DFF9A" strokeWidth={6} strokeLinecap="round" fill="none" opacity={0.3} /> : null}
+        {showSurface && auroraPaths[1] ? <Path d={auroraPaths[1]} stroke="#3DFF9A" strokeWidth={6} strokeLinecap="round" fill="none" opacity={0.55} /> : null}
+        {showSurface && auroraPaths[2] ? <Path d={auroraPaths[2]} stroke="#C86BFF" strokeWidth={6} strokeLinecap="round" fill="none" opacity={0.75} /> : null}
+        {showSurface ? orbitPaths.map((path) => (
           <Path
             key={`o${path.id}`}
             d={path.d}
@@ -240,10 +255,10 @@ export function Globe3D({ markers, aurora = [], paths = [], orbiters = [], orbit
             opacity={path.highlighted ? 1 : 0.55}
             fill="none"
           />
-        ))}
-        {orbiterDots.map((dot) => <Circle key={`s${dot.key}`} cx={dot.x} cy={dot.y} r={1.6} fill={orbiterColor} />)}
-                {markers.map((m) => {
-                  const p = project(m.longitude, m.latitude, lon, lat);
+        )) : null}
+        {showSurface ? orbiterDots.map((dot) => <Circle key={`s${dot.key}`} cx={dot.x} cy={dot.y} r={1.6} fill={orbiterColor} />) : null}
+        {showSurface ? markers.map((m) => {
+          const p = project(m.longitude, m.latitude, lon, lat);
           if (p.z <= 0.05) return null;
           const selected = m.id === selectedId;
           const x = c + p.x * r;
@@ -272,26 +287,39 @@ export function Globe3D({ markers, aurora = [], paths = [], orbiters = [], orbit
               ) : null}
             </Fragment>
           );
-        })}
-        {asteroidShapes.filter((s) => s.visible).map(({ a, dot }) => (
-          <Fragment key={`ad${a.id}`}>
-            <Circle cx={dot.x} cy={dot.y} r={3.5} fill="#FF2D2D" stroke="#FFD5D5" strokeWidth={0.8} />
-            <SvgText x={dot.x + 6} y={dot.y + 3} fill="#FF8A8A" fontSize={8} fontWeight="700">{a.name}</SvgText>
+        }) : null}
+        {spaceView.map(({ body, position }) => position.hidden ? null : (
+          <Fragment key={`sb${body.id}`}>
+            <Circle cx={position.x} cy={position.y} r={4} fill={body.color} stroke="#FFFFFF" strokeWidth={0.8} />
+            <SvgText x={position.x + 7} y={position.y + 3} fill={body.color} fontSize={9} fontWeight="700">{body.label}</SvgText>
           </Fragment>
         ))}
       </Svg>
       {zoomable ? (
-        <View style={{ position: 'absolute', right: 0, bottom: 0, flexDirection: 'row', gap: 6 }}>
-          {([['−', 1 / 1.3], ['+', 1.3]] as const).map(([label, factor]) => (
-            <Pressable
-              key={label}
-              onPress={() => zoomBy(factor)}
-              style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)' }}
-            >
-              <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>{label}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <>
+          <View style={{ position: 'absolute', left: 0, bottom: 0, flexDirection: 'row', gap: 6 }}>
+            {presets.length > 1 ? presets.map((preset) => (
+              <Pressable
+                key={preset.label}
+                onPress={() => setZoom(clampZoom(preset.zoom))}
+                style={{ height: 30, paddingHorizontal: 11, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)' }}
+              >
+                <Text style={{ color: colors.text, fontSize: 11, fontWeight: '700' }}>{preset.label}</Text>
+              </Pressable>
+            )) : null}
+          </View>
+          <View style={{ position: 'absolute', right: 0, bottom: 0, flexDirection: 'row', gap: 6 }}>
+            {([['−', 1 / ZOOM_STEP], ['+', ZOOM_STEP]] as const).map(([label, factor]) => (
+              <Pressable
+                key={label}
+                onPress={() => zoomBy(factor)}
+                style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)' }}
+              >
+                <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </>
       ) : null}
     </View>
   );

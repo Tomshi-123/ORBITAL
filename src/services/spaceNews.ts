@@ -49,10 +49,6 @@ export async function getSpaceNews() {
         cache = { at: Date.now(), items };
         return items;
       })
-      .catch((error) => {
-        if (cache) return cache.items;
-        throw error;
-      })
       .finally(() => {
         inflight = null;
       });

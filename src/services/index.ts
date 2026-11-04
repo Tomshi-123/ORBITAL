@@ -1,26 +1,28 @@
-import { articles, celestialEvents, launches, sightings } from '../mock-data';
-import type { Article, CelestialEvent, Launch, Sighting } from '../types';
-import { getAtlasSightings } from './uapAtlas';
+import type { Article, CelestialEvent, Launch } from '../types';
 import { getUpcomingLaunches } from './launches';
+import { getSpaceNews } from './spaceNews';
+import { getCelestialEvents } from './celestialEvents';
+import type { Coordinates } from './location';
 
 export interface OrbitalDataSource {
-  getSightings(): Promise<Sighting[]>;
   getArticles(kind?: Article['kind']): Promise<Article[]>;
   getLaunches(): Promise<Launch[]>;
-  getCelestialEvents(): Promise<CelestialEvent[]>;
+  getCelestialEvents(coordinates?: Coordinates): Promise<CelestialEvent[]>;
 }
 
-export const mockDataSource: OrbitalDataSource = {
-  async getSightings() { return sightings; },
-  async getArticles(kind) { return kind ? articles.filter((article) => article.kind === kind) : articles; },
-  async getLaunches() { return launches; },
-  async getCelestialEvents() { return celestialEvents; },
-};
-
-// Replace this adapter with real providers when API credentials and data sources are ready.
 export const dataSource: OrbitalDataSource = {
-  ...mockDataSource,
-  getSightings: () => getAtlasSightings().catch(() => []),
-  getLaunches: () => getUpcomingLaunches().catch(() => launches),
+  async getArticles() {
+    const articles = await getSpaceNews();
+    return articles.map((article) => ({
+      id: String(article.id),
+      headline: article.title,
+      source: article.site,
+      category: 'Spaceflight',
+      summary: article.summary,
+      publishedAt: article.publishedAt,
+      kind: 'space',
+    }));
+  },
+  getLaunches: getUpcomingLaunches,
+  async getCelestialEvents(coordinates) { return getCelestialEvents(coordinates); },
 };
-

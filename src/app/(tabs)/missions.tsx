@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
@@ -26,6 +27,25 @@ function Field({ label, value }: { label: string; value: string }) {
     <Text style={styles.fieldLabel}>{label}</Text>
     <Text style={styles.fieldValue}>{value}</Text>
   </View>;
+}
+
+type EntityField = { label: string; value: string };
+
+function EntityCard({ title, status, tone = 'green', fields, children }: {
+  title: string;
+  status: string;
+  tone?: 'green' | 'muted';
+  fields: EntityField[];
+  children?: ReactNode;
+}) {
+  return <Panel style={styles.card}>
+    <View style={styles.cardTop}>
+      <Text style={styles.cardTitle}>{title}</Text>
+      <Badge tone={tone}>{status.toUpperCase()}</Badge>
+    </View>
+    {fields.map((field) => <Field key={field.label} {...field} />)}
+    {children}
+  </Panel>;
 }
 
 export default function ActiveMissionsScreen() {
@@ -73,44 +93,49 @@ export default function ActiveMissionsScreen() {
 
       <SectionTitle title="CURRENT CREWS" />
       <SectionState error={err('missions')} empty={data.missions?.length === 0} emptyText="No active crewed missions reported." onRetry={retry} />
-      {data.missions?.map((mission) => <Panel key={mission.id} style={styles.card}>
-        <View style={styles.cardTop}>
-          <Text style={styles.cardTitle}>{mission.name}</Text>
-          <Badge tone="green">{mission.status.toUpperCase()}</Badge>
-        </View>
-        <Field label="CREW" value={`${mission.crewCount}`} />
-        <Field label="DESTINATION" value={mission.destination} />
-        <Field label="SPACECRAFT" value={mission.spacecraft.length ? mission.spacecraft.join(', ') : 'Not available'} />
+      {data.missions?.map((mission) => <EntityCard
+        key={mission.id}
+        title={mission.name}
+        status={mission.status}
+        fields={[
+          { label: 'CREW', value: `${mission.crewCount}` },
+          { label: 'DESTINATION', value: mission.destination },
+          { label: 'SPACECRAFT', value: mission.spacecraft.length ? mission.spacecraft.join(', ') : 'Not available' },
+        ]}
+      >
         <View style={styles.crewList}>
           {mission.crew.map((member) => <Text key={member.id} style={styles.crewMember}>
             {member.name} <Text style={styles.crewRole}>· {member.role}</Text>
           </Text>)}
         </View>
-      </Panel>)}
+      </EntityCard>)}
 
       <SectionTitle title="ACTIVE SPACECRAFT" />
       <SectionState error={err('spacecraft')} empty={data.spacecraft?.length === 0} emptyText="No spacecraft currently in space." onRetry={retry} />
-      {data.spacecraft?.map((craft) => <Panel key={craft.id} style={styles.card}>
-        <View style={styles.cardTop}>
-          <Text style={styles.cardTitle}>{craft.name}</Text>
-          <Badge tone={craft.status === 'Active' ? 'green' : 'muted'}>{craft.status.toUpperCase()}</Badge>
-        </View>
-        <Field label="TYPE" value={craft.type} />
-        <Field label="AGENCY" value={craft.agency} />
-        <Field label="CURRENT MISSION" value={craft.mission} />
-        {craft.timeInSpace ? <Field label="TIME IN SPACE" value={craft.timeInSpace} /> : null}
-      </Panel>)}
+      {data.spacecraft?.map((craft) => <EntityCard
+        key={craft.id}
+        title={craft.name}
+        status={craft.status}
+        tone={craft.status === 'Active' ? 'green' : 'muted'}
+        fields={[
+          { label: 'TYPE', value: craft.type },
+          { label: 'AGENCY', value: craft.agency },
+          { label: 'CURRENT MISSION', value: craft.mission },
+          ...(craft.timeInSpace ? [{ label: 'TIME IN SPACE', value: craft.timeInSpace }] : []),
+        ]}
+      />)}
 
       <SectionTitle title="ACTIVE STATIONS" />
       <SectionState error={err('stations')} empty={data.stations?.length === 0} emptyText="No operational stations reported." onRetry={retry} />
-      {data.stations?.map((station) => <Panel key={station.id} style={styles.card}>
-        <View style={styles.cardTop}>
-          <Text style={styles.cardTitle}>{station.name}</Text>
-          <Badge tone="green">{station.status.toUpperCase()}</Badge>
-        </View>
-        <Field label="ORBIT" value={station.orbit} />
-        <Field label="CREW" value={station.occupied ? String(station.crewCount) : 'Unoccupied'} />
-      </Panel>)}
+      {data.stations?.map((station) => <EntityCard
+        key={station.id}
+        title={station.name}
+        status={station.status}
+        fields={[
+          { label: 'ORBIT', value: station.orbit },
+          { label: 'CREW', value: station.occupied ? String(station.crewCount) : 'Unoccupied' },
+        ]}
+      />)}
     </> : null}
 
     <TouchableOpacity onPress={() => router.push('/iss-live')} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Live camera">
@@ -125,7 +150,7 @@ export default function ActiveMissionsScreen() {
     </TouchableOpacity>
 
     {data ? <Text style={styles.footnote}>
-      Sources: Open Notify and Launch Library 2. Refreshes every 5 minutes · Last update {new Date(data.updatedAt).toLocaleTimeString()}
+      Source: Launch Library 2. Refreshes every 20 minutes · Last update {new Date(data.updatedAt).toLocaleTimeString()}
     </Text> : null}
   </Page>;
 }
