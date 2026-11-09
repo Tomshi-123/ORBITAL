@@ -39,3 +39,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Server database
+/server/orbital.db
+/server/orbital.db-journal
+/server/orbital.db-wal
+/server/orbital.db-shm
