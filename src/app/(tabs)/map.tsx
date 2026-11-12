@@ -4,14 +4,16 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Countdown } from '../../components/Countdown';
 import { Globe3D, type GlobeMarker, type GlobePath, type GlobeSpaceBody } from '../../components/Globe3D';
-import { FilterChips, Page, PageHeader, Panel } from '../../components/ui';
+import { FilterChips, Page, PageHeader, Panel, SectionTitle } from '../../components/ui';
 import { dataSource } from '../../services';
+import { addSavedLaunch, getSavedLaunchIds, removeSavedLaunch } from '../../services/auth';
 import { orbitGroundTrack } from '../../services/orbits';
 import { getAsteroids, asteroidPoint, asteroidTrack, type Asteroid } from '../../services/asteroids';
 import { getAuroraForecast, type AuroraCell } from '../../services/aurora';
 import { getSatelliteTracks, propagateSatellites, type SatellitePosition, type SatelliteTrack } from '../../services/satellites';
 import { getMoonPoint } from '../../services/sky';
 import { getIssPosition, type IssPosition } from '../../services/atlas';
+import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../theme';
 import type { Launch } from '../../types';
 
@@ -32,11 +34,46 @@ const LAYERS = [
 const TABS = ['Coming launches', 'Incoming asteroids'];
 type LayerKey = (typeof LAYERS)[number]['key'];
 
+function LaunchCard({ launch, isTracked, busy, onSelect, onToggleTracked }: {
+  launch: Launch;
+  isTracked: boolean;
+  busy: boolean;
+  onSelect: () => void;
+  onToggleTracked: () => void;
+}) {
+  return <Panel style={styles.launchCard}>
+    <TouchableOpacity onPress={onSelect} activeOpacity={0.75} style={styles.launchDetails}>
+      <View style={styles.launchRowTop}>
+        <Text style={styles.selectedTitle}>{launch.mission}</Text>
+        {launch.status === 'Scheduled' ? <Text style={styles.nextBadge}>{launch.status.toUpperCase()}</Text> : null}
+      </View>
+      <Text style={styles.selectedDescription}>{launch.rocket} · {launch.location}</Text>
+      <Text style={styles.selectedDescription}>{launch.launchAt ? new Date(launch.launchAt).toLocaleString() : 'NET to be determined'} · Orbit: {launch.orbitName ?? 'Unknown'}{launch.station ? ` · To ${launch.station}` : ''}</Text>
+      {launch.launchAt ? <View style={styles.launchCountdown}><Countdown target={launch.launchAt} compact /></View> : null}
+    </TouchableOpacity>
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={`${isTracked ? 'Untrack' : 'Track'} ${launch.mission}`}
+      disabled={busy}
+      onPress={onToggleTracked}
+      activeOpacity={0.8}
+      style={[styles.trackButton, isTracked && styles.untrackButton, busy && styles.trackButtonBusy]}
+    >
+      <Ionicons name={isTracked ? 'checkmark-circle-outline' : 'bookmark-outline'} size={16} color={isTracked ? colors.text : colors.background} />
+      <Text style={[styles.trackButtonText, isTracked && styles.untrackButtonText]}>{busy ? 'SAVING…' : isTracked ? 'UNTRACK LAUNCH' : 'TRACK LAUNCH'}</Text>
+    </TouchableOpacity>
+  </Panel>;
+}
+
 export default function MapScreen() {
+  const { session } = useAuth();
   const { width } = useWindowDimensions();
   const globeSize = Math.max(280, Math.min(width - 24, 420));
   const [launches, setLaunches] = useState<Launch[]>([]);
   const [launchesUnavailable, setLaunchesUnavailable] = useState(false);
+  const [trackedLaunchIds, setTrackedLaunchIds] = useState<string[]>([]);
+  const [trackedLaunchesError, setTrackedLaunchesError] = useState<string | null>(null);
+  const [pendingLaunchId, setPendingLaunchId] = useState<string | null>(null);
   const [selectedLaunchId, setSelectedLaunchId] = useState<string | null>(null);
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({ iss: true, moon: true, asteroids: true, launches: true, satellites: true, aurora: true });
   const [asteroids, setAsteroids] = useState<Asteroid[]>([]);
@@ -51,6 +88,22 @@ export default function MapScreen() {
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const [tab, setTab] = useState(TABS[0]);
   const [clockNow, setClockNow] = useState(Date.now());
+  useEffect(() => {
+    if (!session) return;
+    let active = true;
+    getSavedLaunchIds(session.token)
+      .then((ids) => {
+        if (active) {
+          setTrackedLaunchIds(ids);
+          setTrackedLaunchesError(null);
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to load tracked launches', error);
+        if (active) setTrackedLaunchesError(error instanceof Error ? error.message : 'Could not load tracked launches.');
+      });
+    return () => { active = false; };
+  }, [session]);
   useEffect(() => {
     let active = true;
     const loadLaunches = () => {
@@ -168,6 +221,17 @@ export default function MapScreen() {
     const launchTime = new Date(launch.launchAt).getTime();
     return !Number.isFinite(launchTime) || launchTime >= clockNow - 60 * 60 * 1000;
   }), [launches, clockNow]);
+  const trackedLaunches = useMemo(
+    () => trackedLaunchIds.flatMap((id) => {
+      const launch = visibleLaunches.find((item) => item.id === id);
+      return launch ? [launch] : [];
+    }),
+    [trackedLaunchIds, visibleLaunches],
+  );
+  const untrackedLaunches = useMemo(
+    () => visibleLaunches.filter((launch) => !trackedLaunchIds.includes(launch.id)),
+    [visibleLaunches, trackedLaunchIds],
+  );
   const issNeeded = layers.iss || (layers.launches && visibleLaunches.some((launch) => launch.station === 'ISS'));
   const markers = useMemo(() => {
     const list: GlobeMarker[] = [];
@@ -199,6 +263,25 @@ export default function MapScreen() {
     }).sort((a, b) => Number(a.highlighted) - Number(b.highlighted));
   }, [visibleLaunches, layers.launches, selectedLaunchId]);
   const toggleLayer = (key: LayerKey) => setLayers((current) => ({ ...current, [key]: !current[key] }));
+  const toggleTrackedLaunch = async (launchId: string) => {
+    if (!session || pendingLaunchId) return;
+    setPendingLaunchId(launchId);
+    setTrackedLaunchesError(null);
+    try {
+      if (trackedLaunchIds.includes(launchId)) {
+        await removeSavedLaunch(session.token, launchId);
+        setTrackedLaunchIds((ids) => ids.filter((id) => id !== launchId));
+      } else {
+        await addSavedLaunch(session.token, launchId);
+        setTrackedLaunchIds((ids) => [launchId, ...ids]);
+      }
+    } catch (error) {
+      console.error('Failed to update tracked launch', error);
+      setTrackedLaunchesError(error instanceof Error ? error.message : 'Could not update tracked launch.');
+    } finally {
+      setPendingLaunchId(null);
+    }
+  };
   const handleSelect = (id: string) => {
     if (id.startsWith('launch:')) {
       setSelectedLaunchId(id.slice('launch:'.length));
@@ -243,17 +326,33 @@ export default function MapScreen() {
       <Text style={styles.dataNoticeText}>Launch schedule is temporarily unavailable.</Text>
     </Panel> : null}
     <FilterChips items={TABS} selected={tab} onSelect={setTab} />
-    {tab === TABS[0] ? <Panel style={styles.infoList}>
-      {visibleLaunches.length === 0 ? <Text style={styles.selectedDescription}>{launchesUnavailable ? 'Launch schedule is temporarily unavailable.' : 'No upcoming launches reported by the provider.'}</Text> : visibleLaunches.map((launch, index) => <TouchableOpacity key={launch.id} onPress={() => setSelectedLaunchId(launch.id === selectedLaunchId ? null : launch.id)} activeOpacity={0.75} style={styles.infoRow}>
-        <View style={styles.launchRowTop}>
-          <Text style={styles.selectedTitle}>{launch.mission}</Text>
-          {index === 0 ? <Text style={styles.nextBadge}>NEXT</Text> : null}
-        </View>
-        <Text style={styles.selectedDescription}>{launch.rocket} · {launch.location}</Text>
-        <Text style={styles.selectedDescription}>{launch.launchAt ? new Date(launch.launchAt).toLocaleString() : 'NET to be determined'} · Orbit: {launch.orbitName ?? 'Unknown'}{launch.station ? ` · To ${launch.station}` : ''}</Text>
-        {launch.launchAt ? <View style={styles.launchCountdown}><Countdown target={launch.launchAt} compact /></View> : null}
-      </TouchableOpacity>)}
-    </Panel> : null}
+    {tab === TABS[0] ? <>
+      <SectionTitle title="TRACKED LAUNCHES" />
+      {trackedLaunchesError ? <Panel style={styles.dataNotice}>
+        <Text style={styles.dataNoticeText}>Tracked launches unavailable: {trackedLaunchesError}</Text>
+      </Panel> : null}
+      {trackedLaunches.length === 0 ? <Panel style={styles.emptyCard}>
+        <Text style={styles.selectedDescription}>No upcoming launches tracked yet.</Text>
+      </Panel> : trackedLaunches.map((launch) => <LaunchCard
+        key={`tracked:${launch.id}`}
+        launch={launch}
+        isTracked
+        busy={pendingLaunchId === launch.id}
+        onSelect={() => setSelectedLaunchId(launch.id === selectedLaunchId ? null : launch.id)}
+        onToggleTracked={() => { void toggleTrackedLaunch(launch.id); }}
+      />)}
+      <SectionTitle title="UPCOMING LAUNCHES" />
+      {untrackedLaunches.length === 0 ? <Panel style={styles.emptyCard}>
+        <Text style={styles.selectedDescription}>{launchesUnavailable ? 'Launch schedule is temporarily unavailable.' : 'No upcoming launches reported by the provider.'}</Text>
+      </Panel> : untrackedLaunches.map((launch) => <LaunchCard
+        key={launch.id}
+        launch={launch}
+        isTracked={false}
+        busy={pendingLaunchId === launch.id}
+        onSelect={() => setSelectedLaunchId(launch.id === selectedLaunchId ? null : launch.id)}
+        onToggleTracked={() => { void toggleTrackedLaunch(launch.id); }}
+      />)}
+    </> : null}
     {tab === TABS[1] ? <Panel style={styles.infoList}>
       {asteroidsUnavailable ? <Text style={styles.selectedDescription}>NASA NeoWs is temporarily unavailable.</Text> : asteroids.length === 0 ? <Text style={styles.selectedDescription}>No close approaches reported for this period by NASA NeoWs.</Text> : asteroids.map((a) => <View key={a.id} style={styles.infoRow}>
         <Text style={styles.selectedTitle}>{a.name}{a.hazardous ? ' · potentially hazardous' : ''}</Text>
@@ -270,6 +369,14 @@ const styles = StyleSheet.create({
   layerItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   layerText: { color: colors.text, fontSize: 12, fontWeight: '600' },
   launchRowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  launchCard: { gap: 12 },
+  launchDetails: { gap: 4 },
+  trackButton: { minHeight: 40, paddingHorizontal: 12, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.cyan },
+  untrackButton: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceRaised },
+  trackButtonBusy: { opacity: 0.65 },
+  trackButtonText: { color: colors.background, fontSize: 10, fontWeight: '800', letterSpacing: 0.7 },
+  untrackButtonText: { color: colors.text },
+  emptyCard: { alignItems: 'center' },
   nextBadge: { color: LAUNCH_COLOR, fontSize: 9, fontWeight: '700', letterSpacing: 1.1 },
   launchCountdown: { marginTop: 6, alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 6, borderRadius: 10, backgroundColor: colors.surfaceRaised },
   mapArea: { justifyContent: 'center' },

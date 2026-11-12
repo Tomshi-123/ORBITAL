@@ -3,43 +3,159 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-color: #05070e;
+  overflow: hidden;
+  background-color: #04050d;
   background-image:
-    radial-gradient(circle at 20% 30%, rgba(30, 20, 60, 0.6) 0%, transparent 50%),
-    radial-gradient(circle at 80% 70%, rgba(10, 40, 60, 0.5) 0%, transparent 60%),
-    linear-gradient(135deg, #05070e 0%, #0b0f19 100%);
+    radial-gradient(ellipse at 13% 17%, rgba(114, 59, 206, 0.25) 0%, transparent 48%),
+    radial-gradient(ellipse at 83% 24%, rgba(52, 79, 181, 0.2) 0%, transparent 45%),
+    radial-gradient(ellipse at 85% 79%, rgba(19, 125, 151, 0.19) 0%, transparent 52%),
+    radial-gradient(ellipse at 28% 87%, rgba(125, 48, 151, 0.13) 0%, transparent 49%),
+    linear-gradient(135deg, #04050d 0%, #090c19 55%, #07131d 100%);
+  background-size: 140% 140%;
+  animation: space-breathe 28s ease-in-out infinite alternate;
+}
+
+#orbital-space-backdrop::before {
+  position: absolute;
+  inset: -18%;
+  content: "";
+  opacity: 0.65;
+  background:
+    radial-gradient(ellipse at 28% 36%, rgba(143, 82, 255, 0.18) 0%, transparent 42%),
+    radial-gradient(ellipse at 70% 66%, rgba(53, 169, 205, 0.14) 0%, transparent 44%);
+  filter: blur(32px);
+  animation: nebula-drift 34s ease-in-out infinite alternate;
 }
 
 #orbital-space-backdrop::after {
   position: absolute;
   inset: 0;
   content: "";
-  opacity: 0.72;
+  z-index: 1;
+  opacity: 0.76;
   background-image:
-    radial-gradient(1px 1px at 7% 12%, rgba(220, 247, 255, 0.9) 50%, transparent 100%),
-    radial-gradient(1px 1px at 18% 29%, rgba(220, 247, 255, 0.65) 50%, transparent 100%),
-    radial-gradient(2px 2px at 32% 11%, rgba(220, 247, 255, 0.8) 50%, transparent 100%),
-    radial-gradient(1px 1px at 45% 37%, rgba(220, 247, 255, 0.62) 50%, transparent 100%),
-    radial-gradient(1px 1px at 61% 18%, rgba(220, 247, 255, 0.72) 50%, transparent 100%),
-    radial-gradient(2px 2px at 76% 42%, rgba(220, 247, 255, 0.75) 50%, transparent 100%),
-    radial-gradient(1px 1px at 89% 23%, rgba(220, 247, 255, 0.62) 50%, transparent 100%),
-    radial-gradient(1px 1px at 12% 68%, rgba(220, 247, 255, 0.7) 50%, transparent 100%),
-    radial-gradient(2px 2px at 28% 83%, rgba(220, 247, 255, 0.72) 50%, transparent 100%),
-    radial-gradient(1px 1px at 51% 71%, rgba(220, 247, 255, 0.58) 50%, transparent 100%),
-    radial-gradient(1px 1px at 68% 91%, rgba(220, 247, 255, 0.7) 50%, transparent 100%),
-    radial-gradient(2px 2px at 94% 79%, rgba(220, 247, 255, 0.66) 50%, transparent 100%);
+    radial-gradient(1px 1px at 7% 12%, rgba(220, 247, 255, 0.95) 50%, transparent 100%),
+    radial-gradient(1px 1px at 18% 29%, rgba(220, 247, 255, 0.7) 50%, transparent 100%),
+    radial-gradient(2px 2px at 32% 11%, rgba(220, 247, 255, 0.9) 50%, transparent 100%),
+    radial-gradient(1px 1px at 45% 37%, rgba(220, 247, 255, 0.65) 50%, transparent 100%),
+    radial-gradient(1px 1px at 61% 18%, rgba(220, 247, 255, 0.78) 50%, transparent 100%),
+    radial-gradient(2px 2px at 76% 42%, rgba(220, 247, 255, 0.84) 50%, transparent 100%),
+    radial-gradient(1px 1px at 89% 23%, rgba(220, 247, 255, 0.68) 50%, transparent 100%),
+    radial-gradient(1px 1px at 12% 68%, rgba(220, 247, 255, 0.74) 50%, transparent 100%),
+    radial-gradient(2px 2px at 28% 83%, rgba(220, 247, 255, 0.83) 50%, transparent 100%),
+    radial-gradient(1px 1px at 51% 71%, rgba(220, 247, 255, 0.65) 50%, transparent 100%),
+    radial-gradient(1px 1px at 68% 91%, rgba(220, 247, 255, 0.74) 50%, transparent 100%),
+    radial-gradient(2px 2px at 94% 79%, rgba(220, 247, 255, 0.78) 50%, transparent 100%),
+    radial-gradient(1px 1px at 3% 42%, rgba(198, 180, 255, 0.68) 50%, transparent 100%),
+    radial-gradient(1px 1px at 24% 54%, rgba(220, 247, 255, 0.7) 50%, transparent 100%),
+    radial-gradient(1px 1px at 39% 25%, rgba(220, 247, 255, 0.76) 50%, transparent 100%),
+    radial-gradient(2px 2px at 56% 48%, rgba(193, 224, 255, 0.8) 50%, transparent 100%),
+    radial-gradient(1px 1px at 72% 8%, rgba(220, 247, 255, 0.7) 50%, transparent 100%),
+    radial-gradient(1px 1px at 97% 54%, rgba(220, 247, 255, 0.64) 50%, transparent 100%),
+    radial-gradient(1px 1px at 8% 91%, rgba(220, 247, 255, 0.74) 50%, transparent 100%),
+    radial-gradient(1px 1px at 42% 94%, rgba(220, 247, 255, 0.67) 50%, transparent 100%),
+    radial-gradient(2px 2px at 84% 94%, rgba(220, 247, 255, 0.8) 50%, transparent 100%);
+  animation: star-twinkle 8s ease-in-out infinite alternate;
+}
+
+#orbital-shooting-stars {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+#orbital-shooting-star-1,
+#orbital-shooting-star-2 {
+  position: absolute;
+  top: 22%;
+  left: -12vw;
+  width: 148px;
+  height: 1px;
+  border-radius: 999px;
+  content: "";
+  opacity: 0;
+  background: linear-gradient(90deg, transparent, rgba(181, 214, 255, 0.38) 36%, rgba(232, 247, 255, 0.98) 100%);
+  filter: drop-shadow(0 0 7px rgba(138, 187, 255, 0.9));
+  transform: rotate(24deg);
+  animation: shooting-star 13s ease-in-out infinite;
+}
+
+#orbital-shooting-star-2 {
+  top: 57%;
+  width: 104px;
+  animation-delay: 6.5s;
+  animation-duration: 13s;
 }
 
 [data-testid="orbital-glass-panel"] {
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  background: rgba(15, 23, 42, 0.5) !important;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
+  border: 1px solid rgba(178, 197, 255, 0.15);
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(25, 33, 54, 0.76), rgba(9, 15, 27, 0.72)) !important;
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.38),
+    0 2px 18px rgba(80, 77, 157, 0.1),
+    inset 0 1px 0 rgba(222, 231, 255, 0.08);
+  -webkit-backdrop-filter: blur(22px) saturate(138%);
+  backdrop-filter: blur(22px) saturate(138%);
+}
+
+[data-testid="orbital-glass-panel"]::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  padding: 1.5px;
+  border-radius: inherit;
+  content: "";
+  opacity: var(--star-glow-opacity, 0);
+  pointer-events: none;
+  background: radial-gradient(
+    180px circle at var(--star-x, 50%) var(--star-y, 50%),
+    rgba(232, 247, 255, 1) 0%,
+    rgba(143, 203, 255, 0.88) 22%,
+    rgba(165, 243, 252, 0.38) 42%,
+    transparent 72%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  filter: drop-shadow(0 0 12px rgba(143, 203, 255, 0.95));
+}
+
+@keyframes space-breathe {
+  from { background-position: 0% 40%; }
+  to { background-position: 100% 60%; }
+}
+
+@keyframes nebula-drift {
+  from { transform: translate3d(-1.4%, -0.8%, 0) scale(0.98); }
+  to { transform: translate3d(1.5%, 1.2%, 0) scale(1.04); }
+}
+
+@keyframes star-twinkle {
+  from { opacity: 0.62; }
+  to { opacity: 0.92; }
+}
+
+@keyframes shooting-star {
+  0%, 74%, 100% { opacity: 0; transform: translate3d(0, 0, 0) rotate(24deg); }
+  78% { opacity: 0.95; }
+  88% { opacity: 0; transform: translate3d(118vw, 52vw, 0) rotate(24deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #orbital-space-backdrop,
+  #orbital-space-backdrop::before,
+  #orbital-space-backdrop::after,
+  #orbital-shooting-star-1,
+  #orbital-shooting-star-2 {
+    animation: none;
+  }
 }
 
 [data-testid="orbital-glass-panel"]::before {
@@ -53,8 +169,8 @@
   pointer-events: none;
   background: radial-gradient(
     180px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-    rgba(165, 243, 252, 0.9),
-    rgba(165, 243, 252, 0.16) 38%,
+    rgba(194, 215, 255, 0.95),
+    rgba(165, 243, 252, 0.2) 38%,
     transparent 72%
   );
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);

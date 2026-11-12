@@ -1,5 +1,6 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../theme';
 
 const tabIcons = {
@@ -9,18 +10,29 @@ const tabIcons = {
 } as const;
 
 export default function TabLayout() {
+  const { session, loading } = useAuth();
+  if (loading) return null;
+  if (!session) return <Redirect href="/login" />;
+
   return <Tabs screenOptions={({ route }) => ({
     headerShown: false,
+    animation: 'shift',
     tabBarActiveTintColor: colors.cyan,
     tabBarInactiveTintColor: colors.faint,
     tabBarStyle: {
-      height: 68,
-      paddingTop: 8,
-      paddingBottom: 8,
-      backgroundColor: 'rgba(15, 23, 42, 0.9)',
-      borderTopColor: colors.border,
+      height: 72,
+      paddingTop: 9,
+      paddingBottom: 9,
+      backgroundColor: 'rgba(9, 13, 25, 0.94)',
+      borderTopColor: 'rgba(121, 150, 218, 0.18)',
+      borderTopWidth: 1,
+      elevation: 18,
+      shadowColor: '#7468D8',
+      shadowOpacity: 0.16,
+      shadowRadius: 18,
     },
-    tabBarLabelStyle: { fontSize: 9, fontWeight: '600' },
+    tabBarItemStyle: { marginHorizontal: 6, borderRadius: 15 },
+    tabBarLabelStyle: { fontSize: 9, fontWeight: '700', letterSpacing: 0.45 },
     tabBarIcon: ({ color, size }) => <Ionicons name={tabIcons[route.name as keyof typeof tabIcons]} size={size} color={color as string} />,
   })}>
     <Tabs.Screen name="index" options={{ title: 'Overview' }} />

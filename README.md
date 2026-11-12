@@ -6,10 +6,22 @@ An Expo / React Native space and astronomy app that uses public data providers a
 
 ```sh
 npm install
-npm start
+npm start -- --lan
 ```
 
 Open it with Expo Go or a development build. Use `npm run android` on Android or `npm run ios` on macOS with Xcode installed.
+
+## Run the local API
+
+Start the API in a separate terminal before signing in or tracking launches:
+
+```sh
+cd server
+npm install
+npx tsx src/index.ts
+```
+
+The SQLite database is initialized in the `server` directory. The first sign-in creates an account automatically; later sign-ins must use the same credentials. Usernames must be 3–32 letters, numbers or underscores, and passwords must be 12–128 characters.
 
 ## What's included
 

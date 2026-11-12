@@ -29,7 +29,8 @@
         {
           "locationWhenInUsePermission": "Allow ORBITAL to use your location to calculate the sky above you. Your coordinates are used on this device."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

@@ -15,6 +15,21 @@ const port = 3000;
 
 app.use(express.json({ limit: '8kb' }));
 
+app.use((request, response, next) => {
+  const origin = request.headers.origin;
+  if (origin && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+    response.setHeader('Access-Control-Allow-Origin', origin);
+    response.setHeader('Vary', 'Origin');
+  }
+  response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  if (request.method === 'OPTIONS') {
+    response.status(204).end();
+    return;
+  }
+  next();
+});
+
 app.get('/health', (_request, response) => {
   response.json({ status: 'ok' });
 });
@@ -80,27 +95,40 @@ app.post('/login', async (request, response) => {
     return;
   }
 
-  const user = database
+  let user = database
     .prepare('SELECT id, username, password_hash FROM users WHERE username = ?')
-    .get(username);
+    .get(username) as { id: number; username: string; password_hash: string } | undefined;
 
-  // Gör samma lösenordsberäkning även om användaren inte finns.
-  const storedHash = typeof user?.password_hash === 'string'
-    ? user.password_hash
-    : `${'0'.repeat(32)}:${'0'.repeat(128)}`;
-
-  const [salt, hashHex] = storedHash.split(':');
-
-  if (!salt || !hashHex || !/^[0-9a-f]{128}$/.test(hashHex)) {
-    throw new Error('Ogiltig lösenordshash i databasen');
+  let created = false;
+  if (!user) {
+    const salt = randomBytes(16).toString('hex');
+    const hash = (await scrypt(password, salt, 64)) as Buffer;
+    const passwordHash = `${salt}:${hash.toString('hex')}`;
+    const result = database
+      .prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)')
+      .run(username, passwordHash);
+    user = {
+      id: Number(result.lastInsertRowid),
+      username,
+      password_hash: passwordHash,
+    };
+    created = true;
   }
 
-  const expectedHash = Buffer.from(hashHex, 'hex');
-  const actualHash = (await scrypt(password, salt, 64)) as Buffer;
+  if (!created) {
+    const [salt, hashHex] = user.password_hash.split(':');
 
-  if (!user || !timingSafeEqual(expectedHash, actualHash)) {
-    response.status(401).json({ error: 'Fel användarnamn eller lösenord.' });
-    return;
+    if (!salt || !hashHex || !/^[0-9a-f]{128}$/.test(hashHex)) {
+      throw new Error('Ogiltig lösenordshash i databasen');
+    }
+
+    const expectedHash = Buffer.from(hashHex, 'hex');
+    const actualHash = (await scrypt(password, salt, 64)) as Buffer;
+
+    if (!timingSafeEqual(expectedHash, actualHash)) {
+      response.status(401).json({ error: 'Fel användarnamn eller lösenord.' });
+      return;
+    }
   }
 
   const token = randomBytes(32).toString('hex');
@@ -115,6 +143,7 @@ app.post('/login', async (request, response) => {
     token,
     expiresAt,
     username: user.username,
+    created,
   });
 });
 

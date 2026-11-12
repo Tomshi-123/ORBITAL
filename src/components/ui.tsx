@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
@@ -14,7 +14,9 @@ export { Panel };
 export type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
 export function Page({ children, scroll = true, scrollEnabled = true, style }: PropsWithChildren<{ scroll?: boolean; scrollEnabled?: boolean; style?: StyleProp<ViewStyle> }>) {
+  const pageId = useId();
   const [touchPoint, setTouchPoint] = useState<{ x: number; y: number } | null>(null);
+  const [shootingStarPoint, setShootingStarPoint] = useState<{ x: number; y: number } | null>(null);
   const updateTouchPoint = (event: { nativeEvent: { pageX: number; pageY: number } }) => {
     setTouchPoint({ x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
   };
@@ -27,8 +29,9 @@ export function Page({ children, scroll = true, scrollEnabled = true, style }: P
       {children}
     </ScrollView>
   ) : <View style={styles.pageContent}>{children}</View>;
-  return <TouchGlowContext.Provider value={{ point: touchPoint, setPoint: setTouchPoint }}>
+  return <TouchGlowContext.Provider value={{ pageId, point: touchPoint, setPoint: setTouchPoint, shootingStarPoint, setShootingStarPoint }}>
     <View
+      nativeID={`orbital-page-${pageId}`}
       style={styles.touchRoot}
       onTouchStart={updateTouchPoint}
       onTouchMove={updateTouchPoint}
@@ -109,15 +112,15 @@ export function InfoRow({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   touchRoot: { flex: 1 },
   safeArea: { flex: 1, backgroundColor: 'transparent' },
-  pageContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 28, gap: 20 },
-  pageHeader: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  headerCopy: { flex: 1, gap: 5 },
-  eyebrow: { fontSize: 10, letterSpacing: 2, fontWeight: '700', color: colors.cyan },
-  pageTitle: { color: colors.text, fontSize: 27, lineHeight: 32, fontWeight: '700', letterSpacing: -0.5 },
-  subtitle: { color: colors.muted, fontSize: 13, lineHeight: 19 },
-  headerAction: { width: 42, height: 42, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceRaised, borderColor: colors.border, borderWidth: 1 },
+  pageContent: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 36, gap: 22 },
+  pageHeader: { minHeight: 68, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
+  headerCopy: { flex: 1, gap: 6 },
+  eyebrow: { fontSize: 9, letterSpacing: 2.4, fontWeight: '800', color: colors.cyan },
+  pageTitle: { color: colors.text, fontSize: 28, lineHeight: 34, fontWeight: '800', letterSpacing: -0.7, textShadowColor: 'rgba(126, 112, 255, 0.18)', textShadowRadius: 16 },
+  subtitle: { color: '#A8B5C9', fontSize: 13, lineHeight: 19 },
+  headerAction: { width: 44, height: 44, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(26, 35, 57, 0.76)', borderColor: 'rgba(158, 183, 255, 0.18)', borderWidth: 1, shadowColor: '#657BEF', shadowOpacity: 0.18, shadowRadius: 14, elevation: 5 },
   sectionTitle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: -8 },
-  sectionText: { color: colors.text, fontSize: 16, fontWeight: '600', letterSpacing: -0.2 },
+  sectionText: { color: '#E8EEFF', fontSize: 15, fontWeight: '700', letterSpacing: 0.15 },
   actionText: { color: colors.cyan, fontSize: 12, fontWeight: '600' },
   badge: { borderWidth: 1, borderRadius: radii.pill, paddingHorizontal: 9, paddingVertical: 5, alignSelf: 'flex-start' },
   badgeText: { fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
@@ -131,8 +134,8 @@ const styles = StyleSheet.create({
   statValue: { color: colors.text, fontSize: 24, lineHeight: 28, fontWeight: '700' },
   statCaption: { color: colors.faint, fontSize: 10 },
   chips: { gap: 8, paddingVertical: 2 },
-  chip: { paddingHorizontal: 14, paddingVertical: 9, backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radii.pill },
-  chipSelected: { backgroundColor: '#173344', borderColor: '#2B637A' },
+  chip: { paddingHorizontal: 15, paddingVertical: 10, backgroundColor: 'rgba(14, 21, 36, 0.78)', borderColor: 'rgba(145, 164, 213, 0.15)', borderWidth: 1, borderRadius: radii.pill },
+  chipSelected: { backgroundColor: 'rgba(55, 96, 123, 0.34)', borderColor: 'rgba(101, 216, 232, 0.56)' },
   chipText: { color: colors.muted, fontSize: 11, fontWeight: '500' },
   chipTextSelected: { color: colors.cyan },
   infoRow: { paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, flexDirection: 'row', justifyContent: 'space-between', gap: 15 },
